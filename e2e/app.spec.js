@@ -143,3 +143,24 @@ test('quota errors keep the previous session and offer export', async ({ page })
   const retained = await page.evaluate(() => JSON.parse(localStorage.getItem('tracce-webar.sessions.v1')).sessions[0]);
   expect(retained.boxes[0].points[0][0]).toBeCloseTo(0.4, 2);
 });
+
+
+test('holding and dragging an annotation keeps the loupe open and suppresses browser menus', async ({ page }) => {
+  await preparePhoto(page);
+  await page.getByRole('button', { name: 'Modifica scatola 1, alto a sinistra' }).click();
+  const image = page.getByAltText('Foto della parete');
+  const rect = await image.boundingBox();
+  await page.mouse.move(rect.x + rect.width * 0.4, rect.y + rect.height * 0.4);
+  await page.mouse.down();
+  await expect(page.locator('.loupe')).toBeVisible();
+  const prevented = await image.evaluate((element) => ({
+    contextMenu: !element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })),
+    imageDrag: !element.dispatchEvent(new Event('dragstart', { bubbles: true, cancelable: true })),
+  }));
+  expect(prevented).toEqual({ contextMenu: true, imageDrag: true });
+  await expect(page.locator('.loupe')).toBeVisible();
+  await page.mouse.move(rect.x + rect.width * 0.39, rect.y + rect.height * 0.39);
+  await page.mouse.up();
+  await expect(page.locator('.loupe')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Continua' })).toBeEnabled();
+});

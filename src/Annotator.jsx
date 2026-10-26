@@ -9,7 +9,9 @@ export default function Annotator({ src, points, onPoint, label = 'Foto della pa
   }
   return <div className="annotation-well">
     <div ref={host} className={`annotator ${onPoint ? 'editable' : ''}`}
-      onPointerDown={(event) => { if (onPoint) { event.currentTarget.setPointerCapture(event.pointerId); setCursor(position(event)); } }}
+      onContextMenu={(event) => event.preventDefault()}
+      onDragStart={(event) => event.preventDefault()}
+      onPointerDown={(event) => { if (onPoint && event.button === 0) { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setCursor(position(event)); } }}
       onPointerMove={(event) => { if (cursor) setCursor(position(event)); }}
       onPointerCancel={() => setCursor(null)}
       onPointerUp={(event) => { if (onPoint && cursor) onPoint(position(event)); setCursor(null); }}>
