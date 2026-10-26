@@ -1,7 +1,8 @@
 # Privacy
 
 Tracce è un'app statica. Non richiede un account e non invia foto, fotogrammi,
-riferimenti o sessioni a un server applicativo. Non include analytics, script
+riferimenti, immagini ArUco o sessioni a un server applicativo. Il riconoscimento
+dei marker avviene nel browser; il collegamento alla foto è salvato nel localStorage. Non include analytics, script
 remoti, font esterni o immagini dimostrative di abitazioni.
 
 La fotocamera è attivata soltanto dopo la scelta dell'utente e il consenso del

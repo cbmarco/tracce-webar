@@ -9,13 +9,39 @@ Sovrapponi le foto delle tracce degli impianti alla parete reale, usandogli ango
 
 1. Carica una foto dal tuo dispositivo (JPG, PNG o WebP).
 2. Seleziona i quattro angoli di una o più scatole, senza inserire misure.
-3. Scegli WebAR spaziale, se supportato, oppure fotocamera con omografia.
+3. Scegli ArUco per l’aggancio automatico, WebAR spaziale se supportato, oppure fotocamera con omografia.
 4. Il lavoro viene salvato automaticamente nel localStorage del browser. Puoi anche esportarlo in un JSON locale.
 
 La lente aiuta a posizionare e correggere gli angoli.
 WebXR allinea la prima scatola ai punti rilevati sulla parete. La modalità video usa tutti gli
 angoli annotati e un tracking sperimentale. Verifica la precisione sul posto.
 L'immagine non è una verifica sufficiente per decidere dove forare.
+
+## ArUco in basso a sinistra della placca
+
+1. Prepara la foto indicando i quattro angoli della prima scatola.
+2. Apri **ArUco sulla placca**, scegli un ID (0–249) e scarica il marker SVG.
+   Il dizionario è **ARUCO_MIP_36h12**, non DICT_4X4_50: usa la stampa generata dall’app.
+3. Stampa in nero su bianco, conservando il margine bianco. Fissa il marker in basso
+   a sinistra della placca, nello stesso punto e sullo stesso piano dei riferimenti.
+4. Per una foto vecchia senza marker: inquadra marker e prima scatola, premi
+   **Ferma e collega marker** e seleziona gli stessi quattro angoli della foto.
+   Usa gli stessi bordi: una placca più grande non coincide con la scatola sottostante.
+5. Salva il collegamento. Da quel momento la foto si aggancia automaticamente quando
+   il marker corretto è visibile. Uscendo dal campo la proiezione si nasconde;
+   tornando in vista si riaggancia. Il collegamento resta nel localStorage e nel JSON esportato.
+
+Se sposti il marker rispetto alla placca o cambi foto, ripeti la calibrazione.
+Inquadra un solo esemplare dello stesso ID; usa ID differenti su pareti differenti.
+Il margine bianco e una stampa abbastanza leggibile aiutano il riconoscimento.
+La posizione in basso a sinistra è una convenzione di montaggio: l’app misura
+la relazione dalla calibrazione, senza ipotizzare distanze o offset in centimetri.
+
+Questa modalità usa la fotocamera del browser e l’omografia, senza richiedere
+WebXR o accesso alla camera immersiva. Il rilevamento funziona localmente tramite
+[js-aruco2](https://github.com/damianofalcioni/js-aruco2). Le rotazioni del marker
+sono riconosciute; il posizionamento rispetto alla placca deve restare ripetibile.
+La precisione su pareti reali va verificata, soprattutto lontano da un marker piccolo.
 
 ## Privacy
 

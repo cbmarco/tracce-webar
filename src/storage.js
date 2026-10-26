@@ -1,10 +1,11 @@
-import { validatePhotoCalibration } from './lib/photoAlignment.js';
+import { validateMarkerAlignment, validatePhotoCalibration } from './lib/photoAlignment.js';
 
 export const STORAGE_KEY = 'tracce-webar.sessions.v1';
 const imagePattern = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=\s]+$/;
 
 export function validLocalSession(session) {
-  return typeof session?.id === 'string' && typeof session.imageName === 'string'
+  return typeof session?.id === 'string'
+    && (session.marker == null || validateMarkerAlignment(session.marker)) && typeof session.imageName === 'string'
     && typeof session.photo === 'string' && imagePattern.test(session.photo)
     && Array.isArray(session.boxes) && (session.boxes.length === 0
       || validatePhotoCalibration({ version: 1, imageName: session.imageName, boxes: session.boxes }))

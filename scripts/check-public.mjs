@@ -4,7 +4,8 @@ const allowed = new Set([
   '.gitignore', '.nvmrc', 'README.md', 'PRIVACY.md', 'package.json', 'package-lock.json',
   'index.html', 'vite.config.js', 'vitest.config.js', 'eslint.config.js', 'playwright.config.js',
   '.github/workflows/pages.yml', 'scripts/check-public.mjs', 'e2e/app.spec.js',
-  ...['Annotator.jsx', 'App.jsx', 'CameraView.jsx', 'XRView.jsx', 'main.jsx', 'photoTracker.js', 'photoTracker.test.js', 'session.js', 'storage.js', 'storage.test.js', 'style.css', 'webxr.js'].map((p) => `src/${p}`),
+  ...['Annotator.jsx', 'ArucoView.jsx', 'aruco.js', 'aruco.test.js', 'App.jsx', 'CameraView.jsx', 'XRView.jsx', 'main.jsx', 'photoTracker.js', 'photoTracker.test.js', 'session.js', 'storage.js', 'storage.test.js', 'style.css', 'webxr.js'].map((p) => `src/${p}`),
+  'public/third-party-notices.txt',
   'src/lib/photoAlignment.js', 'src/lib/photoAlignment.test.js',
 ]);
 const ignored = new Set(['.git', 'node_modules', 'dist', 'test-results', 'playwright-report', '.vite', 'coverage']);

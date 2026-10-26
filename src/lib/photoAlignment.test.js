@@ -42,3 +42,24 @@ it('anchors a photo to WebXR surface hits without known box dimensions', () => {
   expect(() => wallPhotoPlane(box, [hits[0], hits[1], [1.2, 1.9, -1.1], hits[3]])).toThrow('stessa parete');
   expect(() => wallPhotoPlane(box, [hits[0], hits[3], hits[1], hits[2]])).toThrow('angoli');
 });
+
+import { ARUCO_DICTIONARY, markerSourceFromFrame, validateMarkerAlignment } from './photoAlignment.js';
+
+it('links a marker to an old photo using corresponding box corners', () => {
+  const photoPoints = [[0.4, 0.4], [0.6, 0.4], [0.6, 0.5], [0.4, 0.5]];
+  const framePoints = [[0.45, 0.3], [0.85, 0.3], [0.85, 0.8], [0.45, 0.8]];
+  const markerPoints = [[0.48, 0.6], [0.58, 0.6], [0.58, 0.7], [0.48, 0.7]];
+  const marker = markerSourceFromFrame(7, photoPoints, framePoints, markerPoints);
+  expect(marker).toMatchObject({ dictionary: ARUCO_DICTIONARY, id: 7, placement: 'plate-bottom-left' });
+  const photoToFrame = photoHomography(photoPoints, framePoints);
+  marker.sourceCorners.forEach((point, i) => {
+    const projected = projectPhotoPoint(photoToFrame, point);
+    projected.forEach((n, j) => expect(n).toBeCloseTo(markerPoints[i][j], 8));
+  });
+  const calibration = { version: 1, imageName: 'synthetic', boxes: [{ points: photoPoints }], marker };
+  expect(validatePhotoCalibration(calibration)).toBe(true);
+  expect(validatePhotoCalibration({ ...calibration, marker: { ...marker, id: -1 } })).toBe(false);
+  expect(validateMarkerAlignment({ ...marker, sourceCorners: [[NaN, 0], ...marker.sourceCorners.slice(1)] })).toBe(false);
+  expect(validateMarkerAlignment({ ...marker, dictionary: 'unsupported' })).toBe(false);
+  expect(() => markerSourceFromFrame(7, photoPoints, framePoints.slice(0, 3), markerPoints)).toThrow();
+});

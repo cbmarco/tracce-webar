@@ -23,3 +23,12 @@ it('continues to read old local sessions with optional dimensions', () => {
   const storage = { getItem: () => JSON.stringify({ version: 1, currentId: 'test', sessions: [legacy] }) };
   expect(readLocalLibrary(storage).sessions).toEqual([legacy]);
 });
+
+it('preserves a calibrated marker locally and rejects corrupt marker data', () => {
+  const marker = { dictionary: 'ARUCO_MIP_36h12', id: 7, placement: 'plate-bottom-left', sourceCorners: [[0.1, 0.1], [0.2, 0.1], [0.2, 0.2], [0.1, 0.2]] };
+  let raw;
+  const storage = { getItem: () => raw, setItem: (_key, value) => { raw = value; } };
+  writeLocalLibrary([{ ...session, marker }], 'test', storage);
+  expect(readLocalLibrary(storage).sessions[0].marker).toEqual(marker);
+  expect(() => writeLocalLibrary([{ ...session, marker: { ...marker, id: 250 } }], 'test', storage)).toThrow('non valida');
+});

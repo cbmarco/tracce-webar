@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { markerSvg } from '../src/aruco.js';
 
 async function preparePhoto(page) {
   await page.goto('/tracce-webar/');
@@ -162,4 +163,67 @@ test('holding and dragging an annotation keeps the loupe open and suppresses bro
   await page.mouse.up();
   await expect(page.locator('.loupe')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Continua' })).toBeEnabled();
+});
+
+
+async function fakeMarkerCamera(page) {
+  await page.evaluate(async ({ correct, wrong }) => {
+    async function image(svg) { const value = new Image(); value.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; await value.decode(); return value; }
+    const [correctImage, wrongImage] = await Promise.all([image(correct), image(wrong)]);
+    const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 480;
+    const context = canvas.getContext('2d');
+    window.__arucoScene = { mode: 'correct' };
+    function draw() {
+      context.fillStyle = '#c8cfbd'; context.fillRect(0, 0, 640, 480);
+      context.strokeStyle = '#304b38'; context.lineWidth = 8; context.strokeRect(288, 144, 256, 240);
+      const mode = window.__arucoScene.mode;
+      if (mode !== 'missing') context.drawImage(mode === 'wrong' ? wrongImage : correctImage, 300, 275, 90, 90);
+      if (mode === 'duplicate') context.drawImage(correctImage, 60, 40, 90, 90);
+    }
+    draw();
+    navigator.mediaDevices.getUserMedia = async () => {
+      const stream = canvas.captureStream(10); const timer = setInterval(draw, 100);
+      const track = stream.getVideoTracks()[0]; const stop = track.stop.bind(track);
+      track.stop = () => { clearInterval(timer); stop(); window.__arucoStopped = true; };
+      return stream;
+    };
+  }, { correct: markerSvg(0), wrong: markerSvg(7) });
+}
+
+test('ArUco calibrates an old photo, reacquires automatically and restores the link locally', async ({ page }) => {
+  await preparePhoto(page);
+  await page.getByRole('button', { name: 'Continua' }).click();
+  await fakeMarkerCamera(page);
+  await page.getByRole('button', { name: 'Apri ArUco' }).click();
+  const downloadPending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Scarica marker SVG' }).click();
+  expect((await downloadPending).suggestedFilename()).toBe('aruco-mip36h12-0.svg');
+  await expect(page.getByText('● ArUco 0 rilevato', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Ferma e collega marker' }).click();
+  const frozen = page.getByAltText('Fotogramma di calibrazione ArUco');
+  await markCorners(frozen, [[0.45, 0.3], [0.85, 0.3], [0.85, 0.8], [0.45, 0.8]]);
+  await page.getByRole('button', { name: 'Salva collegamento ArUco' }).click();
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toBeVisible();
+  await page.evaluate(() => { window.__arucoScene.mode = 'missing'; });
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toHaveCount(0);
+  await page.evaluate(() => { window.__arucoScene.mode = 'wrong'; });
+  await expect(page.getByText('È visibile un altro marker: serve l’ID 0.')).toBeVisible();
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toHaveCount(0);
+  await page.evaluate(() => { window.__arucoScene.mode = 'duplicate'; });
+  await expect(page.getByText('Sono visibili più marker con ID 0: inquadrane uno solo.')).toBeVisible();
+  await page.evaluate(() => { window.__arucoScene.mode = 'correct'; });
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toBeVisible();
+  await page.getByRole('button', { name: 'Modalità' }).click();
+  expect(await page.evaluate(() => window.__arucoStopped)).toBe(true);
+  await expect(page.getByText('✓ Salvato solo su questo dispositivo')).toBeVisible();
+  const storedMarker = await page.evaluate(() => JSON.parse(localStorage.getItem('tracce-webar.sessions.v1')).sessions[0].marker);
+  expect(storedMarker.dictionary).toBe('ARUCO_MIP_36h12'); expect(storedMarker.sourceCorners).toHaveLength(4);
+  await page.reload();
+  await page.getByRole('button', { name: 'Continua' }).click();
+  await expect(page.getByText('ArUco 0 collegato', { exact: true })).toBeVisible();
+  await fakeMarkerCamera(page);
+  await page.getByRole('button', { name: 'Apri ArUco' }).click();
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ricalibra marker' })).toBeVisible();
+  await page.getByRole('button', { name: 'Modalità' }).click();
 });

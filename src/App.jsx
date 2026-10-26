@@ -6,6 +6,7 @@ import { downloadSession, fileDataUrl, readSession } from './session.js';
 import CameraView from './CameraView.jsx';
 import { compactPhoto, readLocalLibrary, writeLocalLibrary } from './storage.js';
 
+const ArucoView = lazy(() => import('./ArucoView.jsx'));
 const XRView = lazy(() => import('./XRView.jsx'));
 const steps = ['Foto', 'Riferimenti', 'AR'];
 
@@ -18,12 +19,13 @@ export default function App() {
   const [storageError, setStorageError] = useState(initial.error);
   const imageCache = useRef({ source: '', stored: '' });
   const [step, setStep] = useState(current ? 1 : 0); const [photo, setPhoto] = useState(current?.photo || ''); const [imageName, setImageName] = useState(current?.imageName || '');
+  const [marker, setMarker] = useState(current?.marker || null);
   const [boxes, setBoxes] = useState(current?.boxes || []); const [pending, setPending] = useState(current?.pending || []);
   const [editing, setEditing] = useState(null); const [mode, setMode] = useState('');
   const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false);
   const [xrSupported, setXrSupported] = useState(null);
   const [savedReference, setSavedReference] = useState(Boolean(current));
-  const calibration = { version: 1, imageName, boxes };
+  const calibration = { version: 1, imageName, boxes, marker };
   const valid = validatePhotoCalibration(calibration) && !pending.length;
 
   useEffect(() => {
@@ -50,24 +52,24 @@ export default function App() {
         imageCache.current = { source: photo, stored: storedPhoto };
         const existing = readLocalLibrary();
         if (existing.error) throw new Error(existing.error);
-        const entry = { id: activeId, imageName, photo: storedPhoto, boxes, pending, updatedAt: new Date().toISOString() };
+        const entry = { id: activeId, imageName, photo: storedPhoto, boxes, pending, marker, updatedAt: new Date().toISOString() };
         const sessions = [entry, ...existing.sessions.filter((item) => item.id !== activeId)];
         writeLocalLibrary(sessions, activeId);
         setLibrary(sessions); setStorageStatus('saved'); setStorageError(''); setSavedReference(true);
       } catch (cause) { if (!cancelled) { setStorageStatus('error'); setStorageError(cause.message); } }
     }, 500);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [photo, imageName, boxes, pending, activeId]);
+  }, [photo, imageName, boxes, pending, marker, activeId]);
 
   function openSaved(entry) {
-    setPhoto(entry.photo); setImageName(entry.imageName); setBoxes(entry.boxes); setPending(entry.pending);
+    setPhoto(entry.photo); setImageName(entry.imageName); setBoxes(entry.boxes); setPending(entry.pending); setMarker(entry.marker || null);
     setActiveId(entry.id); setEditing(null); setStep(1); setMessage(''); setSavedReference(true);
   }
   function deleteSaved(id) {
     try {
       const sessions = library.filter((entry) => entry.id !== id);
       writeLocalLibrary(sessions, activeId === id ? '' : activeId); setLibrary(sessions);
-      if (activeId === id) { setPhoto(''); setImageName(''); setBoxes([]); setPending([]); setActiveId(''); setStep(0); setStorageStatus(''); }
+      if (activeId === id) { setPhoto(''); setImageName(''); setBoxes([]); setPending([]); setMarker(null); setActiveId(''); setStep(0); setStorageStatus(''); }
       setMessage('Parete eliminata da questo browser.');
     } catch (cause) { setStorageError(cause.message); }
   }
@@ -78,7 +80,7 @@ export default function App() {
       const url = await fileDataUrl(file);
       if (!/^data:image\/(jpeg|png|webp);base64,/.test(url)) throw new Error('Formato non supportato.');
       const image = new Image(); image.src = url; await image.decode();
-      if (imageName !== name || photo) { setBoxes([]); setSavedReference(false); }
+      if (imageName !== name || photo) { setBoxes([]); setMarker(null); setSavedReference(false); }
       setActiveId(crypto.randomUUID());
       setPhoto(url); setImageName(name); setPending([]); setEditing(null); setStep(1);
     } catch { setMessage('Non riesco ad aprire questa foto. Prova un file JPG, PNG o WebP.'); }
@@ -91,7 +93,7 @@ export default function App() {
       const session = await readSession(file);
       if (session.imageDataUrl) { const image = new Image(); image.src = session.imageDataUrl; await image.decode(); }
       setActiveId(crypto.randomUUID());
-      setPhoto(session.imageDataUrl || ''); setImageName(session.imageName); setBoxes(session.boxes);
+      setPhoto(session.imageDataUrl || ''); setImageName(session.imageName); setBoxes(session.boxes); setMarker(session.marker || null);
       setPending([]); setEditing(null); setSavedReference(true); setStep(session.imageDataUrl ? 1 : 0);
       setMessage(session.imageDataUrl ? 'Sessione ripristinata: foto e riferimenti pronti.' : `Riferimenti importati. Ora carica la foto ${session.imageName}.`);
     } catch (cause) { setMessage(`Importazione non riuscita: ${cause.message}`); }
@@ -112,6 +114,7 @@ export default function App() {
     setBoxes([...boxes, box]); setPending([]);
   }
 
+  if (mode === 'aruco') return <div className="app live-app"><Suspense fallback={<p className="loading">Preparazione ArUco…</p>}><ArucoView photo={photo} boxes={boxes} marker={marker} onCalibrate={(value) => { setMarker(value); setSavedReference(false); }} onBack={() => setMode('')} /></Suspense></div>;
   if (mode === 'camera') return <div className="app live-app"><CameraView photo={photo} boxes={boxes} onBack={() => setMode('')} /></div>;
   if (mode === 'xr') return <div className="app live-app"><Suspense fallback={<p className="loading">Preparazione WebAR…</p>}><XRView photo={photo} box={boxes[0]} onBack={() => setMode('')} onCamera={() => setMode('camera')} /></Suspense></div>;
 
@@ -146,7 +149,7 @@ export default function App() {
       </>}
       {step === 2 && <>
         <div className="intro compact"><div className="eyebrow">02 / SULLA PARETE</div><h1>Dal cantiere a oggi.</h1><p>Riferimenti pronti. Scegli come sovrapporre la foto.</p></div>
-        <div className="mode-grid"><section className="panel mode-card"><span className={`badge ${xrSupported ? 'good' : ''}`}>{xrSupported === null ? 'Verifica dispositivo…' : xrSupported ? 'Disponibile sul dispositivo' : 'Non disponibile su questo browser'}</span><div className="mode-symbol">◎</div><h2>WebAR spaziale</h2><p>Ancora la foto alla parete e muoviti nella stanza. Il dispositivo segue posizione e orientamento.</p><ul><li>Mirino guidato sui quattro angoli della prima scatola</li><li>Allineamento dai punti rilevati sulla parete</li><li>Richiede WebXR, rilevamento superfici e HTTPS</li></ul><button className="primary" disabled={!xrSupported} onClick={() => setMode('xr')}>Apri WebAR →</button></section>
+        <div className="mode-grid"><section className="panel mode-card"><span className="badge good">{marker ? `ArUco ${marker.id} collegato` : 'Aggancio automatico con marker'}</span><div className="mode-symbol">▦</div><h2>ArUco sulla placca</h2><p>Fissa il marker in basso a sinistra della placca. Dopo il primo collegamento, la foto si allinea quando lo inquadri.</p><ul><li>Scarica il marker da stampare direttamente dall’app</li><li>Prima calibrazione con gli angoli della scatola</li><li>Riconoscimento e riaggancio automatici nel browser</li></ul><button className="primary" onClick={() => setMode('aruco')}>Apri ArUco →</button></section><section className="panel mode-card"><span className={`badge ${xrSupported ? 'good' : ''}`}>{xrSupported === null ? 'Verifica dispositivo…' : xrSupported ? 'Disponibile sul dispositivo' : 'Non disponibile su questo browser'}</span><div className="mode-symbol">◎</div><h2>WebAR spaziale</h2><p>Ancora la foto alla parete e muoviti nella stanza. Il dispositivo segue posizione e orientamento.</p><ul><li>Mirino guidato sui quattro angoli della prima scatola</li><li>Allineamento dai punti rilevati sulla parete</li><li>Richiede WebXR, rilevamento superfici e HTTPS</li></ul><button className="primary" disabled={!xrSupported} onClick={() => setMode('xr')}>Apri WebAR →</button></section>
           <section className="panel mode-card"><span className="badge">Fotocamera del browser</span><div className="mode-symbol">⌖</div><h2>Foto in sovrapposizione</h2><p>Allinea tutti i riferimenti su un fotogramma e seguili nel video. Utile anche quando WebXR non è supportato.</p><ul><li>Selezione precisa con fermo immagine e lente</li><li>Omografia con tutte le scatole annotate</li><li>Tracking video sperimentale, richiede HTTPS o localhost</li></ul><button className={xrSupported ? 'secondary' : 'primary'} onClick={() => setMode('camera')}>Apri fotocamera →</button></section></div>
         <div className="session-footer"><button className="quiet" onClick={() => setStep(1)}>← Modifica riferimenti</button><button className="secondary" onClick={() => { downloadSession(calibration, photo); setSavedReference(true); }}>↓ Esporta sessione</button></div>
       </>}

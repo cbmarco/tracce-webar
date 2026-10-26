@@ -1,6 +1,7 @@
 // Points are normalized image coordinates, ordered clockwise per box.
 export function validatePhotoCalibration(value) {
   return value?.version === 1 && typeof value.imageName === 'string'
+    && (value.marker == null || validateMarkerAlignment(value.marker))
     && Array.isArray(value.boxes) && value.boxes.length > 0 && value.boxes.length <= 20
     && value.boxes.every((box) => Array.isArray(box.points) && box.points.length === 4
       && box.points.every((p) => Array.isArray(p) && p.length === 2
@@ -101,4 +102,24 @@ export function wallPhotoPlane(box, hits) {
   const bounds = photoCorners.map((p) => projectPhotoPoint(homography, p));
   if (bounds.flat().some((n) => !Number.isFinite(n) || Math.abs(n) > 30)) throw new Error('Proiezione troppo estesa. Correggi gli angoli sulla foto.');
   return { origin, x, y, normal, homography, bounds };
+}
+
+
+export const ARUCO_DICTIONARY = 'ARUCO_MIP_36h12';
+
+export function validateMarkerAlignment(marker) {
+  return marker?.dictionary === ARUCO_DICTIONARY && Number.isInteger(marker.id) && marker.id >= 0 && marker.id < 250
+    && marker.placement === 'plate-bottom-left' && Array.isArray(marker.sourceCorners) && marker.sourceCorners.length === 4
+    && marker.sourceCorners.every((point) => Array.isArray(point) && point.length === 2
+      && point.every((n) => Number.isFinite(n) && Math.abs(n) <= 16))
+    && polygonArea(marker.sourceCorners) > 0.000001 && isConvex(marker.sourceCorners);
+}
+
+export function markerSourceFromFrame(id, photoPoints, framePoints, markerPoints) {
+  const quad = (points) => validatePhotoCalibration({ version: 1, imageName: 'reference', boxes: [{ points }] });
+  if (!quad(photoPoints) || !quad(framePoints) || !quad(markerPoints)) throw new Error('Seleziona quattro angoli validi nello stesso ordine della foto.');
+  const frameToPhoto = photoHomography(framePoints, photoPoints);
+  const marker = { dictionary: ARUCO_DICTIONARY, id, placement: 'plate-bottom-left', sourceCorners: markerPoints.map((point) => projectPhotoPoint(frameToPhoto, point)) };
+  if (!validateMarkerAlignment(marker)) throw new Error('Collegamento non valido. Correggi gli angoli e riprova.');
+  return marker;
 }
