@@ -10,8 +10,7 @@ export function validLocalSession(session) {
       || validatePhotoCalibration({ version: 1, imageName: session.imageName, boxes: session.boxes }))
     && Array.isArray(session.pending) && session.pending.length <= 3
     && session.pending.every((point) => Array.isArray(point) && point.length === 2
-      && point.every((n) => Number.isFinite(n) && n >= 0 && n <= 1))
-    && typeof session.width === 'string' && typeof session.height === 'string';
+      && point.every((n) => Number.isFinite(n) && n >= 0 && n <= 1));
 }
 
 export function readLocalLibrary(storage) {

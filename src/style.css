@@ -75,10 +75,6 @@ p { font-size: 14px; line-height: 1.65; color: var(--muted); }
 .image-caption { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); padding: 8px 0; }
 .prepare-controls h2 { margin-bottom: 12px; }
 .prepare-controls p { font-size: 12px; }
-.dimension-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
-.dimension-grid label { display: block; font-size: 12px; }
-.dimension-grid label span { float: right; color: #8b9585; font-size: 10px; }
-.dimension-grid input { width: 100%; background: #f7f8f2; padding: 11px; border: 1px solid #cbd4c3; border-radius: 8px; margin-top: 8px; color: var(--green); }
 .corner-guide { width: 120px; height: 65px; border: 1px dashed #9fae92; margin: 22px auto 16px; display: grid; grid-template-columns: 1fr 1fr; align-content: space-between; font-size: 11px; color: var(--green); padding: 6px; }
 .corner-guide span:nth-child(even) { text-align: right; }
 .current-corner { text-align: center; font-size: 13px; font-weight: 550; }
@@ -183,13 +179,7 @@ progress::-webkit-progress-value { background: #426b42; }
 
 .photo-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; background: #fcfdf8; border: 1px solid var(--line); border-radius: 12px; padding: 15px 18px; margin-bottom: 12px; }
 .photo-toolbar strong { display: block; font-size: 13px; margin-top: 6px; }
-.photo-toolbar .dimension-grid { margin-top: 0; max-width: 220px; }
-.photo-toolbar .dimension-grid input { padding: 8px 10px; }
-.box-dimensions { font-size: 11px; margin: 8px 0; }
-.box-dimensions summary { cursor: pointer; color: #6b805f; }
-.box-dimensions label { display: block; margin: 8px 0; }
-.box-dimensions input { width: 80px; padding: 6px; margin-left: 8px; border: 1px solid var(--line); border-radius: 5px; background: #f5f6f0; }
-@media (max-width: 780px) { .photo-toolbar { padding: 14px; gap: 14px; } .photo-toolbar .dimension-grid { max-width: none; width: 100%; } .photo-toolbar .dimension-grid input { padding: 10px; } }
+@media (max-width: 780px) { .photo-toolbar { padding: 14px; gap: 14px; } }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .local-status { font-size: 11px; color: #55714d; margin: 0 0 12px; }
 .local-library { margin-bottom: 30px; }

@@ -8,12 +8,12 @@ Sovrapponi le foto delle tracce degli impianti alla parete reale, usandogli ango
 ## Uso
 
 1. Carica una foto dal tuo dispositivo (JPG, PNG o WebP).
-2. Inserisci le dimensioni della scatola e selezionane i quattro angoli.
+2. Seleziona i quattro angoli di una o più scatole, senza inserire misure.
 3. Scegli WebAR spaziale, se supportato, oppure fotocamera con omografia.
 4. Il lavoro viene salvato automaticamente nel localStorage del browser. Puoi anche esportarlo in un JSON locale.
 
-La lente aiuta a posizionare gli angoli; puoi correggere punti e dimensioni.
-WebXR usa la prima scatola per la scala metrica. La modalità video usa tutti gli
+La lente aiuta a posizionare e correggere gli angoli.
+WebXR allinea la prima scatola ai punti rilevati sulla parete. La modalità video usa tutti gli
 angoli annotati e un tracking sperimentale. Verifica la precisione sul posto.
 L'immagine non è una verifica sufficiente per decidere dove forare.
 

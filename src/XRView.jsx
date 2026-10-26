@@ -27,7 +27,7 @@ export default function XRView({ photo, box, onBack, onCamera }) {
         <div className="eyebrow">WEBAR · TRACKING SPAZIALE</div><h2>Appoggia la foto alla parete</h2>
         <p>Muovi lentamente il telefono per rilevare la parete. Poi porta il mirino sui quattro angoli della <strong>prima scatola</strong> e confermali in ordine.</p>
         <img className="reference-thumb" src={photo} alt="Foto da ancorare" />
-        <p>Riferimento: {box.widthCm} × {box.heightCm} cm. Le dimensioni reali determinano la scala sulla parete.</p>
+        <p>Non servono misure: allinea i quattro angoli della scatola nella foto ai punti rilevati sulla parete.</p>
         {error && <div role="alert" className="notice">{error}</div>}
         <button className="primary" disabled={starting} onClick={start}>{starting ? 'Avvio WebAR…' : 'Entra in WebAR'}</button>
         <button className="secondary" disabled={starting} onClick={onCamera}>Usa fotocamera e omografia</button>

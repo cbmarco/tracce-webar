@@ -13,8 +13,7 @@ async function preparePhoto(page) {
   await page.getByLabel('Foto originale').setInputFiles({ name: 'synthetic-wall.png', mimeType: 'image/png', buffer: Buffer.from(dataUrl.split(',')[1], 'base64') });
   const image = page.locator('.annotator > img');
   await expect.poll(() => image.evaluate((el) => el.naturalWidth)).toBeGreaterThan(0);
-  await page.getByLabel('Larghezza (cm)').fill('13.2');
-  await page.getByLabel('Altezza (cm)').fill('7.4');
+  await expect(page.getByRole('spinbutton')).toHaveCount(0);
   await markCorners(image, [[0.4, 0.4], [0.6, 0.4], [0.6, 0.5], [0.4, 0.5]]);
   await expect(page.getByText('✓ Scatola 1')).toBeVisible();
 }
@@ -56,7 +55,7 @@ test('standalone workflow exports/restores photos and projects a camera frame wi
   await page.reload();
   await page.getByLabel('Importa sessione').setInputFiles(savedPath);
   await expect(page.getByText('✓ Scatola 1')).toBeVisible();
-  await expect(page.getByText('13.2 × 7.4 cm')).toBeVisible();
+  await expect(page.locator('.annotator circle')).toHaveCount(4);
   await page.getByRole('button', { name: 'Continua' }).click();
   await expect(page.getByRole('heading', { name: 'WebAR spaziale' })).toBeVisible();
   await fakeCamera(page);

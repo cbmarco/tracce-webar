@@ -2,9 +2,7 @@
 export function validatePhotoCalibration(value) {
   return value?.version === 1 && typeof value.imageName === 'string'
     && Array.isArray(value.boxes) && value.boxes.length > 0 && value.boxes.length <= 20
-    && value.boxes.every((box) => Number.isFinite(box.widthCm) && box.widthCm > 0
-      && Number.isFinite(box.heightCm) && box.heightCm > 0
-      && Array.isArray(box.points) && box.points.length === 4
+    && value.boxes.every((box) => Array.isArray(box.points) && box.points.length === 4
       && box.points.every((p) => Array.isArray(p) && p.length === 2
         && p.every((n) => Number.isFinite(n) && n >= 0 && n <= 1))
       && polygonArea(box.points) > 0.000001 && isConvex(box.points));
@@ -77,9 +75,9 @@ export function invertPhotoHomography(h) {
   return inverse.map((n) => n / inverse[8]);
 }
 
-// WebXR positions are in meters. The known box dimensions determine the metric
-// rectangle, while surface hits supply its position and orientation in the room.
-export function metricPhotoPlane(box, hits) {
+// Surface hits supply the position, orientation and extent in WebXR meters.
+// Manual dimensions are not needed for photo alignment.
+export function wallPhotoPlane(box, hits) {
   if (hits.length !== 4 || !hits.every((p) => p.length === 3 && p.every(Number.isFinite))) throw new Error('Servono quattro punti sulla parete.');
   const sub = (a, b) => a.map((n, i) => n - b[i]);
   const dot = (a, b) => a.reduce((s, n, i) => s + n * b[i], 0);
@@ -90,13 +88,13 @@ export function metricPhotoPlane(box, hits) {
   const y = unit(down.map((n, i) => n - dot(down, x) * x[i]));
   const normal = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]];
   if (hits.some((p) => Math.abs(dot(sub(p, hits[0]), normal)) > 0.025)) throw new Error('I punti non sono sulla stessa parete. Ripeti l’aggancio.');
-  const width = box.widthCm / 100; const height = box.heightCm / 100;
-  const expected = [[0, 0], [width, 0], [width, height], [0, height]];
-  const center = [0, 1, 2].map((i) => hits.reduce((s, p) => s + p[i], 0) / 4);
-  const origin = center.map((n, i) => n - x[i] * width / 2 - y[i] * height / 2);
-  const mismatch = Math.max(...hits.map((p, i) => length(sub(p, origin.map((n, j) => n + x[j] * expected[i][0] + y[j] * expected[i][1])))));
-  if (mismatch > Math.max(width, height) * 0.4) throw new Error('Gli angoli non corrispondono alle dimensioni della scatola. Controlla le misure e riprova.');
-  const homography = photoHomography(box.points, expected);
+  const origin = hits[0];
+  const target = hits.map((point) => {
+    const delta = sub(point, origin);
+    return [dot(delta, x), dot(delta, y)];
+  });
+  if (!isConvex(target) || polygonArea(target) < 0.000001) throw new Error('Gli angoli sulla parete non sono validi. Ripeti l’aggancio nello stesso ordine della foto.');
+  const homography = photoHomography(box.points, target);
   const photoCorners = [[0, 0], [1, 0], [1, 1], [0, 1]];
   const denominators = photoCorners.map(([u, v]) => homography[6] * u + homography[7] * v + 1);
   if (denominators.some((w) => w <= 0.00001)) throw new Error('Prospettiva troppo inclinata. Scegli una foto più frontale o correggi gli angoli.');

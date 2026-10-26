@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { invertPhotoHomography, metricPhotoPlane } from './lib/photoAlignment.js';
+import { invertPhotoHomography, wallPhotoPlane } from './lib/photoAlignment.js';
 
 export async function startWallXR({ root, canvas, photo, box, onUpdate, onEnd }) {
   // Request the session directly from the user gesture, before awaiting assets.
@@ -59,7 +59,7 @@ export async function startWallXR({ root, canvas, photo, box, onUpdate, onEnd })
         hits.push(currentHit.slice(12, 15));
         if (hits.length === 4) {
           try {
-            const plane = metricPhotoPlane(box, hits);
+            const plane = wallPhotoPlane(box, hits);
             const inverse = invertPhotoHomography(plane.homography);
             const xs = plane.bounds.map((p) => p[0]); const ys = plane.bounds.map((p) => p[1]);
             const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);

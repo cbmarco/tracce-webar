@@ -19,7 +19,6 @@ export default function App() {
   const imageCache = useRef({ source: '', stored: '' });
   const [step, setStep] = useState(current ? 1 : 0); const [photo, setPhoto] = useState(current?.photo || ''); const [imageName, setImageName] = useState(current?.imageName || '');
   const [boxes, setBoxes] = useState(current?.boxes || []); const [pending, setPending] = useState(current?.pending || []);
-  const [width, setWidth] = useState(current?.width || ''); const [height, setHeight] = useState(current?.height || '');
   const [editing, setEditing] = useState(null); const [mode, setMode] = useState('');
   const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false);
   const [xrSupported, setXrSupported] = useState(null);
@@ -51,18 +50,18 @@ export default function App() {
         imageCache.current = { source: photo, stored: storedPhoto };
         const existing = readLocalLibrary();
         if (existing.error) throw new Error(existing.error);
-        const entry = { id: activeId, imageName, photo: storedPhoto, boxes, pending, width, height, updatedAt: new Date().toISOString() };
+        const entry = { id: activeId, imageName, photo: storedPhoto, boxes, pending, updatedAt: new Date().toISOString() };
         const sessions = [entry, ...existing.sessions.filter((item) => item.id !== activeId)];
         writeLocalLibrary(sessions, activeId);
         setLibrary(sessions); setStorageStatus('saved'); setStorageError(''); setSavedReference(true);
       } catch (cause) { if (!cancelled) { setStorageStatus('error'); setStorageError(cause.message); } }
     }, 500);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [photo, imageName, boxes, pending, width, height, activeId]);
+  }, [photo, imageName, boxes, pending, activeId]);
 
   function openSaved(entry) {
     setPhoto(entry.photo); setImageName(entry.imageName); setBoxes(entry.boxes); setPending(entry.pending);
-    setWidth(entry.width); setHeight(entry.height); setActiveId(entry.id); setEditing(null); setStep(1); setMessage(''); setSavedReference(true);
+    setActiveId(entry.id); setEditing(null); setStep(1); setMessage(''); setSavedReference(true);
   }
   function deleteSaved(id) {
     try {
@@ -105,11 +104,10 @@ export default function App() {
       if (!validatePhotoCalibration({ ...calibration, boxes: next })) { setMessage('Questo angolo renderebbe la scatola non valida. Riprova.'); return; }
       setBoxes(next); setEditing(null); return;
     }
-    if (!(Number(width) > 0 && Number(height) > 0)) { setMessage('Inserisci larghezza e altezza del bordo della scatola prima di selezionare gli angoli.'); return; }
     if (boxes.length >= 20) { setMessage('Puoi usare fino a 20 scatole.'); return; }
     const next = [...pending, point];
     if (next.length < 4) { setPending(next); return; }
-    const box = { widthCm: Number(width), heightCm: Number(height), points: next };
+    const box = { points: next };
     if (!validatePhotoCalibration({ ...calibration, boxes: [box] })) { setMessage('Gli angoli devono formare un rettangolo in prospettiva. Correggi l’ultimo punto o annulla.'); return; }
     setBoxes([...boxes, box]); setPending([]);
   }
@@ -128,19 +126,19 @@ export default function App() {
         <div className="intro"><div className="eyebrow">IL TUO ARCHIVIO DI CANTIERE, IN AR</div><h1>Riguarda dentro<br />le tue pareti.</h1><p>Una foto delle tracce. Le scatole come riferimenti.<br />Ritrova i percorsi degli impianti sulla parete di oggi.</p></div>
         {library.length > 0 && <section aria-label="Pareti salvate" className="local-library"><div className="section-heading"><h2>Le tue pareti</h2><span className="muted">Solo su questo dispositivo</span></div><div className="saved-grid">{library.map((entry) => <article className="saved-card" key={entry.id}><button className="saved-open" onClick={() => openSaved(entry)}><img src={entry.photo} alt="" /><strong>{entry.imageName}</strong><span>{entry.boxes.length} scatole · Riprendi →</span></button><button className="quiet" aria-label={`Elimina ${entry.imageName}`} onClick={() => deleteSaved(entry.id)}>Elimina dal browser</button></article>)}</div></section>}
         <div className="welcome-grid"><label className={`upload-card ${busy ? 'busy' : ''}`}><span className="upload-icon">＋</span><strong>{busy ? 'Apertura foto…' : 'Aggiungi la foto di una parete'}</strong><span>JPG, PNG o WebP · elaborata nel browser</span><span className="button primary">Scegli una foto</span><input disabled={busy} aria-label="Foto originale" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files[0]; if (file) loadPhoto(file, file.name); event.target.value = ''; }} /></label>
-          <div className="how-card panel"><span className="eyebrow">COME FUNZIONA</span><ol><li><strong>Prepara la foto</strong><span>Indica gli angoli delle scatole e le loro dimensioni.</span></li><li><strong>Inquadra la parete</strong><span>Ritrova gli stessi riferimenti nel mondo reale.</span></li><li><strong>Rivela le tracce</strong><span>Regola la trasparenza e confronta i due momenti.</span></li></ol></div>
+          <div className="how-card panel"><span className="eyebrow">COME FUNZIONA</span><ol><li><strong>Prepara la foto</strong><span>Indica i quattro angoli delle scatole.</span></li><li><strong>Inquadra la parete</strong><span>Ritrova gli stessi riferimenti nel mondo reale.</span></li><li><strong>Rivela le tracce</strong><span>Regola la trasparenza e confronta i due momenti.</span></li></ol></div>
         </div>
         <p className="privacy-note">Foto e riferimenti vengono salvati nel localStorage di questo browser. Puoi esportarli o eliminarli quando vuoi; non vengono caricati online.</p>
       </>}
       {step === 1 && <>
         <div className="section-heading"><div><div className="eyebrow">01 / PREPARAZIONE</div><h1>Trova i tuoi punti fermi.</h1><p>{imageName} · {boxes.length} {boxes.length === 1 ? 'scatola pronta' : 'scatole pronte'}</p></div><button className="quiet" onClick={() => setStep(0)}>Cambia foto</button></div>
-        <div className="prepare-grid"><div><div className="photo-toolbar"><div><span className="eyebrow">SCATOLA {editing === null ? boxes.length + 1 : Math.floor(editing / 4) + 1}</span><strong>{editing === null ? `Tocca ${cornerNames[pending.length]}` : `Correggi ${cornerNames[editing % 4]}`}</strong></div><div className="dimension-grid"><label>Larghezza <span>cm</span><input aria-label="Larghezza (cm)" type="number" min="0.1" step="0.1" placeholder="es. 13,2" value={width} onChange={(event) => setWidth(event.target.value)} /></label><label>Altezza <span>cm</span><input aria-label="Altezza (cm)" type="number" min="0.1" step="0.1" placeholder="es. 7,4" value={height} onChange={(event) => setHeight(event.target.value)} /></label></div></div><Annotator src={photo} points={[...boxes.flatMap((box) => box.points), ...pending]} activeIndex={editing} onPoint={pointSelected} />
+        <div className="prepare-grid"><div><div className="photo-toolbar"><div><span className="eyebrow">SCATOLA {editing === null ? boxes.length + 1 : Math.floor(editing / 4) + 1}</span><strong>{editing === null ? `Tocca ${cornerNames[pending.length]}` : `Correggi ${cornerNames[editing % 4]}`}</strong></div></div><Annotator src={photo} points={[...boxes.flatMap((box) => box.points), ...pending]} activeIndex={editing} onPoint={pointSelected} />
           <div className="image-caption"><span>⌖ Tieni premuto e trascina per usare la lente.</span><button className="quiet" disabled={!pending.length && editing === null} onClick={() => { if (editing !== null) setEditing(null); else setPending(pending.slice(0, -1)); }}>↶ {editing !== null ? 'Annulla modifica' : 'Annulla punto'}</button></div></div>
-          <aside className="panel prepare-controls"><div className="eyebrow">{editing === null ? `SCATOLA ${boxes.length + 1}` : 'CORREGGI RIFERIMENTO'}</div><h2>{editing === null ? 'Quattro angoli, una misura.' : `Scatola ${Math.floor(editing / 4) + 1}`}</h2><p>Misura il bordo che selezioni. Usa riferimenti sullo stesso piano; due scatole distanti migliorano l’allineamento.</p>
+          <aside className="panel prepare-controls"><div className="eyebrow">{editing === null ? `SCATOLA ${boxes.length + 1}` : 'CORREGGI RIFERIMENTO'}</div><h2>{editing === null ? 'Bastano quattro angoli.' : `Scatola ${Math.floor(editing / 4) + 1}`}</h2><p>Seleziona lo stesso bordo nella foto e sulla parete. Usa riferimenti sullo stesso piano; due scatole distanti migliorano l’allineamento.</p>
             
             <div className="corner-guide" aria-label="Ordine degli angoli"><span>1 ↖</span><span>↗ 2</span><span>4 ↙</span><span>↘ 3</span></div>
             <div className="current-corner" role="status">{editing !== null ? `Tocca il nuovo angolo ${cornerNames[editing % 4]}` : `Tocca ${cornerNames[pending.length]}`}</div><progress aria-label="Angoli della scatola" max="4" value={pending.length} />
-            {boxes.map((box, i) => <div className="box-summary" key={i}><div><strong>✓ Scatola {i + 1}</strong><span>{box.widthCm} × {box.heightCm} cm</span><details className="box-dimensions"><summary>Modifica misure</summary>{[['widthCm', 'Larghezza'], ['heightCm', 'Altezza']].map(([key, label]) => <label key={key}>{label} (cm)<input aria-label={`${label} scatola ${i + 1} (cm)`} type="number" min="0.1" step="0.1" value={box[key]} onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value) && value > 0) { setBoxes(boxes.map((entry, index) => index === i ? { ...entry, [key]: value } : entry)); setSavedReference(false); } }} /></label>)}</details><div className="point-buttons">{box.points.map((_, j) => <button className="quiet" key={j} aria-label={`Modifica scatola ${i + 1}, ${cornerNames[j]}`} onClick={() => { setPending([]); setEditing(i * 4 + j); }}>{j + 1}</button>)}</div></div><button className="quiet" aria-label={`Rimuovi scatola ${i + 1}`} onClick={() => { setBoxes(boxes.filter((_, index) => index !== i)); setPending([]); setEditing(null); setSavedReference(false); }}>×</button></div>)}
+            {boxes.map((box, i) => <div className="box-summary" key={i}><div><strong>✓ Scatola {i + 1}</strong><div className="point-buttons">{box.points.map((_, j) => <button className="quiet" key={j} aria-label={`Modifica scatola ${i + 1}, ${cornerNames[j]}`} onClick={() => { setPending([]); setEditing(i * 4 + j); }}>{j + 1}</button>)}</div></div><button className="quiet" aria-label={`Rimuovi scatola ${i + 1}`} onClick={() => { setBoxes(boxes.filter((_, index) => index !== i)); setPending([]); setEditing(null); setSavedReference(false); }}>×</button></div>)}
             <button className="primary" disabled={!valid || editing !== null} onClick={() => { setMessage(''); setStep(2); }}>Continua · Inquadra la parete →</button>
             <button className="secondary" disabled={!valid} onClick={() => { downloadSession(calibration, photo); setSavedReference(true); setMessage('Sessione esportata con foto e riferimenti. Conservala per riaprire il lavoro.'); }}>↓ Esporta sessione</button>
           </aside>
@@ -148,7 +146,7 @@ export default function App() {
       </>}
       {step === 2 && <>
         <div className="intro compact"><div className="eyebrow">02 / SULLA PARETE</div><h1>Dal cantiere a oggi.</h1><p>Riferimenti pronti. Scegli come sovrapporre la foto.</p></div>
-        <div className="mode-grid"><section className="panel mode-card"><span className={`badge ${xrSupported ? 'good' : ''}`}>{xrSupported === null ? 'Verifica dispositivo…' : xrSupported ? 'Disponibile sul dispositivo' : 'Non disponibile su questo browser'}</span><div className="mode-symbol">◎</div><h2>WebAR spaziale</h2><p>Ancora la foto alla parete e muoviti nella stanza. Il dispositivo segue posizione e orientamento.</p><ul><li>Mirino guidato sui quattro angoli della prima scatola</li><li>Scala dalle dimensioni reali della scatola</li><li>Richiede WebXR, rilevamento superfici e HTTPS</li></ul><button className="primary" disabled={!xrSupported} onClick={() => setMode('xr')}>Apri WebAR →</button></section>
+        <div className="mode-grid"><section className="panel mode-card"><span className={`badge ${xrSupported ? 'good' : ''}`}>{xrSupported === null ? 'Verifica dispositivo…' : xrSupported ? 'Disponibile sul dispositivo' : 'Non disponibile su questo browser'}</span><div className="mode-symbol">◎</div><h2>WebAR spaziale</h2><p>Ancora la foto alla parete e muoviti nella stanza. Il dispositivo segue posizione e orientamento.</p><ul><li>Mirino guidato sui quattro angoli della prima scatola</li><li>Allineamento dai punti rilevati sulla parete</li><li>Richiede WebXR, rilevamento superfici e HTTPS</li></ul><button className="primary" disabled={!xrSupported} onClick={() => setMode('xr')}>Apri WebAR →</button></section>
           <section className="panel mode-card"><span className="badge">Fotocamera del browser</span><div className="mode-symbol">⌖</div><h2>Foto in sovrapposizione</h2><p>Allinea tutti i riferimenti su un fotogramma e seguili nel video. Utile anche quando WebXR non è supportato.</p><ul><li>Selezione precisa con fermo immagine e lente</li><li>Omografia con tutte le scatole annotate</li><li>Tracking video sperimentale, richiede HTTPS o localhost</li></ul><button className={xrSupported ? 'secondary' : 'primary'} onClick={() => setMode('camera')}>Apri fotocamera →</button></section></div>
         <div className="session-footer"><button className="quiet" onClick={() => setStep(1)}>← Modifica riferimenti</button><button className="secondary" onClick={() => { downloadSession(calibration, photo); setSavedReference(true); }}>↓ Esporta sessione</button></div>
       </>}
