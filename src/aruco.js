@@ -27,6 +27,25 @@ export function findMarker(imageData, id, detector) {
   return { state: 'found', marker: { id, corners } };
 }
 
+export function markerFromPhotoPixels(imageData, detector = createMarkerDetector()) {
+  const detected = detector.detect(imageData);
+  if (!detected.length) throw new Error('Nessun marker leggibile nella foto. Avvicinati, lascia visibile il bordo bianco e scatta di nuovo, oppure usa i riferimenti delle scatole.');
+  if (detected.length !== 1) throw new Error('Nella foto sono visibili più marker. Usa una foto con un solo marker per collegare questa parete.');
+  const result = findMarker(imageData, detected[0].id, { detect: () => detected });
+  if (!result.marker) throw new Error('Il marker nella foto è troppo piccolo o vicino al bordo. Scatta di nuovo con il marker intero e più grande.');
+  return { dictionary: ARUCO_DICTIONARY, id: result.marker.id, placement: 'wall-fixed', sourceCorners: result.marker.corners };
+}
+
+export async function markerFromPhoto(source) {
+  const image = new Image(); image.src = source; await image.decode();
+  const scale = Math.min(1, 1920 / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(image.naturalWidth * scale); canvas.height = Math.round(image.naturalHeight * scale);
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return markerFromPhotoPixels(context.getImageData(0, 0, canvas.width, canvas.height));
+}
+
 export function downloadMarker(id) {
   const url = URL.createObjectURL(new Blob([markerSvg(id)], { type: 'image/svg+xml' }));
   const link = document.createElement('a');
@@ -40,13 +59,13 @@ export async function downloadMarkerPng(id) {
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source)}`;
   await image.decode();
   const canvas = document.createElement('canvas');
-  // 384 dots is the common thermal print width. Keep an extra white margin.
+  // 38 dots per dictionary cell; only the SVG's one-cell quiet zone remains.
   canvas.width = canvas.height = 384;
   const context = canvas.getContext('2d');
   context.fillStyle = 'white';
   context.fillRect(0, 0, 384, 384);
   context.imageSmoothingEnabled = false;
-  context.drawImage(image, 32, 32, 320, 320);
+  context.drawImage(image, 2, 2, 380, 380);
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('Impossibile creare il PNG. Riprova a scaricarlo.');
   const url = URL.createObjectURL(blob);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMarkerDetector, findMarker, markerSvg } from './aruco.js';
+import { createMarkerDetector, findMarker, markerFromPhotoPixels, markerSvg } from './aruco.js';
 
 // Rasterize the generated SVG in memory: no reference photos or binary fixtures.
 function syntheticMarker(id, rotation = 0, duplicate = false) {
@@ -42,4 +42,13 @@ describe('ArUco print and detection', () => {
     expect(findMarker(blank, 7, detector)).toEqual({ state: 'missing', marker: null });
     expect(() => markerSvg(250)).toThrow();
   });
+});
+
+it('uses the marker in a new photo directly and refuses missing or multiple references', () => {
+  const marker = markerFromPhotoPixels(syntheticMarker(7, 1));
+  expect(marker).toMatchObject({ id: 7, placement: 'wall-fixed', dictionary: 'ARUCO_MIP_36h12' });
+  expect(marker.sourceCorners).toHaveLength(4);
+  expect(() => markerFromPhotoPixels(syntheticMarker(7, 0, true))).toThrow('più marker');
+  const blank = syntheticMarker(7); blank.data.fill(255);
+  expect(() => markerFromPhotoPixels(blank)).toThrow('Nessun marker');
 });

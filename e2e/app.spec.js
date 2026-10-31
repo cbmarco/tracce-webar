@@ -166,7 +166,7 @@ test('holding and dragging an annotation keeps the loupe open and suppresses bro
 });
 
 
-async function fakeMarkerCamera(page) {
+async function fakeMarkerCamera(page, id = 0) {
   await page.evaluate(async ({ correct, wrong }) => {
     async function image(svg) { const value = new Image(); value.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; await value.decode(); return value; }
     const [correctImage, wrongImage] = await Promise.all([image(correct), image(wrong)]);
@@ -187,7 +187,7 @@ async function fakeMarkerCamera(page) {
       track.stop = () => { clearInterval(timer); stop(); window.__arucoStopped = true; };
       return stream;
     };
-  }, { correct: markerSvg(0), wrong: markerSvg(7) });
+  }, { correct: markerSvg(id), wrong: markerSvg((id + 7) % 250) });
 }
 
 test('ArUco calibrates an old photo, reacquires automatically and restores the link locally', async ({ page }) => {
@@ -211,9 +211,9 @@ test('ArUco calibrates an old photo, reacquires automatically and restores the l
     const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
     const pixels = context.getImageData(0, 0, image.width, image.height);
     const { createMarkerDetector, findMarker } = await import('/tracce-webar/src/aruco.js');
-    return { width: image.width, height: image.height, colors: [...new Set(pixels.data)], detection: findMarker(pixels, 0, createMarkerDetector()).state };
+    return { blackBorder: context.getImageData(40, 40, 1, 1).data[0], whiteBorder: context.getImageData(39, 40, 1, 1).data[0], width: image.width, height: image.height, colors: [...new Set(pixels.data)], detection: findMarker(pixels, 0, createMarkerDetector()).state };
   }, Buffer.concat(chunks).toString('base64'));
-  expect(pngResult).toEqual({ width: 384, height: 384, colors: expect.arrayContaining([0, 255]), detection: 'found' });
+  expect(pngResult).toEqual({ blackBorder: 0, whiteBorder: 255, width: 384, height: 384, colors: expect.arrayContaining([0, 255]), detection: 'found' });
   expect(pngResult.colors).toHaveLength(2);
   await expect(page.getByRole('link', { name: 'Apri Kitty Printer' })).toHaveAttribute('href', 'https://print.unseen-site.fun/');
   await expect(page.getByText('● ArUco 0 rilevato', { exact: true })).toBeVisible();
@@ -244,4 +244,43 @@ test('ArUco calibrates an old photo, reacquires automatically and restores the l
   await expect(page.getByAltText('Tracce agganciate ad ArUco')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ricalibra marker' })).toBeVisible();
   await page.getByRole('button', { name: 'Modalità' }).click();
+});
+
+
+test('new marker photo opens WebAR without boxes and survives export, import and reload', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/tracce-webar/');
+  const photo = await page.evaluate(async (svg) => {
+    const marker = new Image(); marker.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; await marker.decode();
+    const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 600;
+    const context = canvas.getContext('2d'); context.fillStyle = '#ddd'; context.fillRect(0, 0, 800, 600);
+    context.drawImage(marker, 300, 275, 150, 150);
+    return canvas.toDataURL('image/png');
+  }, markerSvg(7));
+  await page.getByLabel('Foto originale').setInputFiles({ name: 'new-marker-wall.png', mimeType: 'image/png', buffer: Buffer.from(photo.split(',')[1], 'base64') });
+  await expect(page.getByRole('heading', { name: '✓ Marker 7 pronto' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('navigation', { name: 'Passaggi' }).getByRole('button').nth(2).click();
+  await expect(page.getByRole('button', { name: 'Apri WebAR', exact: false }).filter({ hasText: 'Apri WebAR →' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Apri fotocamera' })).toBeDisabled();
+  await fakeMarkerCamera(page, 7);
+  await page.getByRole('button', { name: 'Apri ArUco' }).click();
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ferma e collega marker' })).toHaveCount(0);
+  await page.evaluate(() => { window.__arucoScene.mode = 'missing'; });
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toHaveCount(0);
+  await page.evaluate(() => { window.__arucoScene.mode = 'correct'; });
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toBeVisible();
+  await page.getByRole('button', { name: 'Modalità' }).click();
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Esporta sessione' }).click();
+  const path = await (await pending).path();
+  await page.getByLabel('Importa sessione').setInputFiles(path);
+  await expect(page.getByRole('heading', { name: '✓ Marker 7 pronto' })).toBeVisible();
+  await expect(page.getByText('✓ Salvato solo su questo dispositivo')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '✓ Marker 7 pronto' })).toBeVisible();
+  await fakeMarkerCamera(page, 7);
+  await page.getByRole('button', { name: 'Apri WebAR con marker' }).click();
+  await expect(page.getByAltText('Tracce agganciate ad ArUco')).toBeVisible();
 });

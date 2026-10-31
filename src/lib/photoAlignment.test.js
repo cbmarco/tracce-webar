@@ -63,3 +63,12 @@ it('links a marker to an old photo using corresponding box corners', () => {
   expect(validateMarkerAlignment({ ...marker, dictionary: 'unsupported' })).toBe(false);
   expect(() => markerSourceFromFrame(7, photoPoints, framePoints.slice(0, 3), markerPoints)).toThrow();
 });
+
+it('allows marker-only sessions while still requiring a valid reference and valid optional boxes', () => {
+  const marker = { dictionary: ARUCO_DICTIONARY, id: 7, placement: 'wall-fixed', sourceCorners: [[0.1, 0.1], [0.2, 0.1], [0.2, 0.2], [0.1, 0.2]] };
+  const session = { version: 1, imageName: 'marker-photo.png', boxes: [], marker };
+  expect(validatePhotoCalibration(session)).toBe(true);
+  expect(validatePhotoCalibration({ ...session, marker: null })).toBe(false);
+  expect(validatePhotoCalibration({ ...session, marker: { ...marker, id: -1 } })).toBe(false);
+  expect(validatePhotoCalibration({ ...session, boxes: [{ points: [[0, 0]] }] })).toBe(false);
+});

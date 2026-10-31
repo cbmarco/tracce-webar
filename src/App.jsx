@@ -19,6 +19,7 @@ export default function App() {
   const [storageError, setStorageError] = useState(initial.error);
   const imageCache = useRef({ source: '', stored: '' });
   const [step, setStep] = useState(current ? 1 : 0); const [photo, setPhoto] = useState(current?.photo || ''); const [imageName, setImageName] = useState(current?.imageName || '');
+  const [printId, setPrintId] = useState(0);
   const [marker, setMarker] = useState(current?.marker || null);
   const [boxes, setBoxes] = useState(current?.boxes || []); const [pending, setPending] = useState(current?.pending || []);
   const [editing, setEditing] = useState(null); const [mode, setMode] = useState('');
@@ -27,6 +28,7 @@ export default function App() {
   const [savedReference, setSavedReference] = useState(Boolean(current));
   const calibration = { version: 1, imageName, boxes, marker };
   const valid = validatePhotoCalibration(calibration) && !pending.length;
+  const hasBoxes = boxes.length > 0;
 
   useEffect(() => {
     let active = true;
@@ -35,10 +37,10 @@ export default function App() {
     return () => { active = false; };
   }, []);
   useEffect(() => {
-    function beforeUnload(event) { if (boxes.length && !savedReference) { event.preventDefault(); event.returnValue = ''; } }
+    function beforeUnload(event) { if ((boxes.length || marker) && !savedReference) { event.preventDefault(); event.returnValue = ''; } }
     window.addEventListener('beforeunload', beforeUnload);
     return () => window.removeEventListener('beforeunload', beforeUnload);
-  }, [boxes.length, savedReference]);
+  }, [boxes.length, marker, savedReference]);
 
   useEffect(() => {
     if (!photo || !activeId) return;
@@ -83,6 +85,12 @@ export default function App() {
       if (imageName !== name || photo) { setBoxes([]); setMarker(null); setSavedReference(false); }
       setActiveId(crypto.randomUUID());
       setPhoto(url); setImageName(name); setPending([]); setEditing(null); setStep(1);
+      try {
+        const { markerFromPhoto } = await import('./aruco.js');
+        const detected = await markerFromPhoto(url);
+        setMarker(detected); setSavedReference(false);
+        setMessage(`Marker ${detected.id} riconosciuto nella foto. Puoi aprire subito WebAR con marker, senza selezionare scatole.`);
+      } catch (cause) { setMessage(cause.message); }
     } catch { setMessage('Non riesco ad aprire questa foto. Prova un file JPG, PNG o WebP.'); }
     finally { setBusy(false); }
   }
@@ -126,15 +134,29 @@ export default function App() {
       {storageError && <div role="alert" className="notice">{storageError}</div>}
       {photo && <p className="local-status" role="status">{storageStatus === 'saving' ? 'Salvataggio nel browser…' : storageStatus === 'saved' ? '✓ Salvato solo su questo dispositivo' : 'Salvataggio locale non disponibile: esporta la sessione.'}</p>}
       {step === 0 && <>
-        <div className="intro"><div className="eyebrow">IL TUO ARCHIVIO DI CANTIERE, IN AR</div><h1>Riguarda dentro<br />le tue pareti.</h1><p>Una foto delle tracce. Le scatole come riferimenti.<br />Ritrova i percorsi degli impianti sulla parete di oggi.</p></div>
+        <div className="intro"><div className="eyebrow">IL TUO ARCHIVIO DI CANTIERE, IN AR</div><h1>Riguarda dentro<br />le tue pareti.</h1><p>Una foto delle tracce con un marker visibile.<br />Ritrova i percorsi degli impianti sulla parete di oggi.</p></div>
         {library.length > 0 && <section aria-label="Pareti salvate" className="local-library"><div className="section-heading"><h2>Le tue pareti</h2><span className="muted">Solo su questo dispositivo</span></div><div className="saved-grid">{library.map((entry) => <article className="saved-card" key={entry.id}><button className="saved-open" onClick={() => openSaved(entry)}><img src={entry.photo} alt="" /><strong>{entry.imageName}</strong><span>{entry.boxes.length} scatole · Riprendi →</span></button><button className="quiet" aria-label={`Elimina ${entry.imageName}`} onClick={() => deleteSaved(entry.id)}>Elimina dal browser</button></article>)}</div></section>}
         <div className="welcome-grid"><label className={`upload-card ${busy ? 'busy' : ''}`}><span className="upload-icon">＋</span><strong>{busy ? 'Apertura foto…' : 'Aggiungi la foto di una parete'}</strong><span>JPG, PNG o WebP · elaborata nel browser</span><span className="button primary">Scegli una foto</span><input disabled={busy} aria-label="Foto originale" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files[0]; if (file) loadPhoto(file, file.name); event.target.value = ''; }} /></label>
-          <div className="how-card panel"><span className="eyebrow">COME FUNZIONA</span><ol><li><strong>Prepara la foto</strong><span>Indica i quattro angoli delle scatole.</span></li><li><strong>Inquadra la parete</strong><span>Ritrova gli stessi riferimenti nel mondo reale.</span></li><li><strong>Rivela le tracce</strong><span>Regola la trasparenza e confronta i due momenti.</span></li></ol></div>
+          <div className="how-card panel"><span className="eyebrow">COME FUNZIONA</span><ol><li><strong>Prepara la foto</strong><span>Fissa un marker sulla parete e scatta con il marker visibile. Per le foto vecchie usa gli angoli delle scatole.</span></li><li><strong>Inquadra la parete</strong><span>Ritrova gli stessi riferimenti nel mondo reale.</span></li><li><strong>Rivela le tracce</strong><span>Regola la trasparenza e confronta i due momenti.</span></li></ol></div>
         </div>
+        <section className="panel local-library">
+          <h2>Prima della foto: stampa il marker</h2>
+          <p>Fissalo piatto sul piano della parete e lascialo fermo durante foto e prova dal vivo. Usa un ID diverso per ogni parete; nella foto deve essere visibile un solo marker, intero e ben leggibile.</p>
+          <label>ID da stampare <input aria-label="ID da stampare" type="number" min="0" max="249" value={printId} onChange={(event) => { const n = Number(event.target.value); if (Number.isInteger(n) && n >= 0 && n < 250) setPrintId(n); }} /></label>
+          <button className="secondary" onClick={async () => { try { const { downloadMarkerPng } = await import('./aruco.js'); await downloadMarkerPng(printId); } catch (cause) { setMessage(cause.message); } }}>↓ Scarica marker PNG per termica</button>
+          <p><a href="https://print.unseen-site.fun/" target="_blank" rel="noopener noreferrer">Apri Kitty Printer ↗</a> e carica il PNG come immagine. Conserva il bordo bianco. Il marker già stampato funziona anche con le foto nuove.</p>
+        </section>
         <p className="privacy-note">Foto e riferimenti vengono salvati nel localStorage di questo browser. Puoi esportarli o eliminarli quando vuoi; non vengono caricati online.</p>
       </>}
       {step === 1 && <>
-        <div className="section-heading"><div><div className="eyebrow">01 / PREPARAZIONE</div><h1>Trova i tuoi punti fermi.</h1><p>{imageName} · {boxes.length} {boxes.length === 1 ? 'scatola pronta' : 'scatole pronte'}</p></div><button className="quiet" onClick={() => setStep(0)}>Cambia foto</button></div>
+        <div className="section-heading"><div><div className="eyebrow">01 / PREPARAZIONE</div><h1>{marker ? 'Foto pronta per WebAR.' : 'Trova i tuoi punti fermi.'}</h1><p>{imageName} · {boxes.length} {boxes.length === 1 ? 'scatola pronta' : 'scatole pronte'}</p></div><button className="quiet" onClick={() => setStep(0)}>Cambia foto</button></div>
+        {marker && <section className="panel local-library" aria-label="Marker nella foto">
+          <h2>✓ Marker {marker.id} pronto</h2>
+          <p>La foto è collegata al marker. Non servono angoli delle scatole: inquadra lo stesso marker nella stessa posizione sulla parete.</p>
+          <button className="primary" disabled={!valid} onClick={() => setMode('aruco')}>Apri WebAR con marker →</button>
+          <p>Se il marker viene spostato, rifai la foto. I riferimenti delle scatole qui sotto sono facoltativi e servono per le altre modalità.</p>
+        </section>}
+        <details open={!marker || marker.placement !== 'wall-fixed'}><summary>{marker ? 'Riferimenti delle scatole (facoltativi)' : 'Foto senza marker: indica gli angoli delle scatole'}</summary>
         <div className="prepare-grid"><div><div className="photo-toolbar"><div><span className="eyebrow">SCATOLA {editing === null ? boxes.length + 1 : Math.floor(editing / 4) + 1}</span><strong>{editing === null ? `Tocca ${cornerNames[pending.length]}` : `Correggi ${cornerNames[editing % 4]}`}</strong></div></div><Annotator src={photo} points={[...boxes.flatMap((box) => box.points), ...pending]} activeIndex={editing} onPoint={pointSelected} />
           <div className="image-caption"><span>⌖ Tieni premuto e trascina per usare la lente.</span><button className="quiet" disabled={!pending.length && editing === null} onClick={() => { if (editing !== null) setEditing(null); else setPending(pending.slice(0, -1)); }}>↶ {editing !== null ? 'Annulla modifica' : 'Annulla punto'}</button></div></div>
           <aside className="panel prepare-controls"><div className="eyebrow">{editing === null ? `SCATOLA ${boxes.length + 1}` : 'CORREGGI RIFERIMENTO'}</div><h2>{editing === null ? 'Bastano quattro angoli.' : `Scatola ${Math.floor(editing / 4) + 1}`}</h2><p>Seleziona lo stesso bordo nella foto e sulla parete. Usa riferimenti sullo stesso piano; due scatole distanti migliorano l’allineamento.</p>
@@ -145,12 +167,12 @@ export default function App() {
             <button className="primary" disabled={!valid || editing !== null} onClick={() => { setMessage(''); setStep(2); }}>Continua · Inquadra la parete →</button>
             <button className="secondary" disabled={!valid} onClick={() => { downloadSession(calibration, photo); setSavedReference(true); setMessage('Sessione esportata con foto e riferimenti. Conservala per riaprire il lavoro.'); }}>↓ Esporta sessione</button>
           </aside>
-        </div>
+        </div></details>
       </>}
       {step === 2 && <>
         <div className="intro compact"><div className="eyebrow">02 / SULLA PARETE</div><h1>Dal cantiere a oggi.</h1><p>Riferimenti pronti. Scegli come sovrapporre la foto.</p></div>
-        <div className="mode-grid"><section className="panel mode-card"><span className="badge good">{marker ? `ArUco ${marker.id} collegato` : 'Aggancio automatico con marker'}</span><div className="mode-symbol">▦</div><h2>ArUco sulla placca</h2><p>Fissa il marker in basso a sinistra della placca. Dopo il primo collegamento, la foto si allinea quando lo inquadri.</p><ul><li>Scarica il marker da stampare direttamente dall’app</li><li>Prima calibrazione con gli angoli della scatola</li><li>Riconoscimento e riaggancio automatici nel browser</li></ul><button className="primary" onClick={() => setMode('aruco')}>Apri ArUco →</button></section><section className="panel mode-card"><span className={`badge ${xrSupported ? 'good' : ''}`}>{xrSupported === null ? 'Verifica dispositivo…' : xrSupported ? 'Disponibile sul dispositivo' : 'Non disponibile su questo browser'}</span><div className="mode-symbol">◎</div><h2>WebAR spaziale</h2><p>Ancora la foto alla parete e muoviti nella stanza. Il dispositivo segue posizione e orientamento.</p><ul><li>Mirino guidato sui quattro angoli della prima scatola</li><li>Allineamento dai punti rilevati sulla parete</li><li>Richiede WebXR, rilevamento superfici e HTTPS</li></ul><button className="primary" disabled={!xrSupported} onClick={() => setMode('xr')}>Apri WebAR →</button></section>
-          <section className="panel mode-card"><span className="badge">Fotocamera del browser</span><div className="mode-symbol">⌖</div><h2>Foto in sovrapposizione</h2><p>Allinea tutti i riferimenti su un fotogramma e seguili nel video. Utile anche quando WebXR non è supportato.</p><ul><li>Selezione precisa con fermo immagine e lente</li><li>Omografia con tutte le scatole annotate</li><li>Tracking video sperimentale, richiede HTTPS o localhost</li></ul><button className={xrSupported ? 'secondary' : 'primary'} onClick={() => setMode('camera')}>Apri fotocamera →</button></section></div>
+        <div className="mode-grid"><section className="panel mode-card"><span className="badge good">{marker ? `ArUco ${marker.id} collegato` : 'Aggancio automatico con marker'}</span><div className="mode-symbol">▦</div><h2>ArUco sulla placca</h2><p>Foto con marker: inquadra lo stesso marker, fermo nella posizione dello scatto. Per le foto vecchie usa il collegamento tramite scatola.</p><ul><li>Scarica il marker da stampare direttamente dall’app</li><li>Foto con marker: collegamento automatico al caricamento</li><li>Riconoscimento e riaggancio automatici nel browser</li></ul><button className="primary" onClick={() => setMode('aruco')}>Apri ArUco →</button></section><section className="panel mode-card"><span className={`badge ${xrSupported ? 'good' : ''}`}>{xrSupported === null ? 'Verifica dispositivo…' : xrSupported ? 'Disponibile sul dispositivo' : 'Non disponibile su questo browser'}</span><div className="mode-symbol">◎</div><h2>WebAR spaziale</h2><p>Ancora la foto alla parete e muoviti nella stanza. Il dispositivo segue posizione e orientamento.</p><ul><li>Mirino guidato sui quattro angoli della prima scatola</li><li>Allineamento dai punti rilevati sulla parete</li><li>Richiede una scatola annotata, WebXR e HTTPS</li></ul><button className="primary" disabled={!xrSupported || !hasBoxes} onClick={() => setMode('xr')}>Apri WebAR →</button></section>
+          <section className="panel mode-card"><span className="badge">Fotocamera del browser</span><div className="mode-symbol">⌖</div><h2>Foto in sovrapposizione</h2><p>Allinea tutti i riferimenti su un fotogramma e seguili nel video. Utile anche quando WebXR non è supportato.</p><ul><li>Richiede almeno una scatola annotata nella foto</li><li>Omografia con tutte le scatole annotate</li><li>Tracking video sperimentale, richiede HTTPS o localhost</li></ul><button disabled={!hasBoxes} className={xrSupported ? 'secondary' : 'primary'} onClick={() => setMode('camera')}>Apri fotocamera →</button></section></div>
         <div className="session-footer"><button className="quiet" onClick={() => setStep(1)}>← Modifica riferimenti</button><button className="secondary" onClick={() => { downloadSession(calibration, photo); setSavedReference(true); }}>↓ Esporta sessione</button></div>
       </>}
     </main><footer className="app-footer"><span>TRACCE / WEBAR</span><span>Una parete alla volta.</span></footer>

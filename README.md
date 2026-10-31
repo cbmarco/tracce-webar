@@ -17,6 +17,16 @@ WebXR allinea la prima scatola ai punti rilevati sulla parete. La modalità vide
 angoli annotati e un tracking sperimentale. Verifica la precisione sul posto.
 L'immagine non è una verifica sufficiente per decidere dove forare.
 
+## Foto nuove con marker (percorso consigliato)
+
+1. Dalla schermata iniziale scegli un ID e scarica il PNG per termica. Apri Kitty Printer e stampa il PNG senza ritagliare il bordo bianco. La stampa usa solo il margine del dizionario, senza quello aggiuntivo precedente; i marker già stampati restano validi.
+2. Fissa il marker piatto sul piano della parete, in una posizione stabile. Usa ID diversi per pareti diverse e un solo marker visibile per foto.
+3. Scatta le tracce includendo il marker intero e ben leggibile, poi carica la foto in Tracce. Il riconoscimento avviene localmente e collega direttamente gli angoli del marker alla foto.
+4. Premi **Apri WebAR con marker** e inquadra lo stesso marker, nella stessa posizione e orientamento: la foto si sovrappone senza selezionare scatole.
+5. Il collegamento viene salvato nel browser e nel JSON esportato. Se sposti il marker, rifai la foto; il solo ID non permette di ricostruirne la posizione originale.
+
+Se il marker non viene letto, l’app lo segnala e permette di usare il percorso tramite scatole. Le modalità WebXR spaziale e fotocamera manuale richiedono ancora almeno una scatola annotata. Il percorso con marker usa l’omografia nel video del browser e allinea il piano della parete.
+
 ## ArUco in basso a sinistra della placca
 
 1. Prepara la foto indicando i quattro angoli della prima scatola.

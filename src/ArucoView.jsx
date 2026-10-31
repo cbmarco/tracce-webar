@@ -85,7 +85,7 @@ export default function ArucoView({ photo, boxes, marker, onCalibrate, onBack })
     } catch (cause) { setError(cause.message); }
   }
   const detected = Boolean(detection.marker);
-  const reason = detection.state === 'too-small' ? 'Avvicinati al marker per leggere bene i suoi angoli.' : detection.state === 'wrong-id' ? `È visibile un altro marker: serve l’ID ${id}.` : detection.state === 'ambiguous' ? `Sono visibili più marker con ID ${id}: inquadrane uno solo.` : detection.state === 'clipped' ? 'Inquadra il marker intero, lasciando spazio attorno.' : `Inquadra il marker ${id} in basso a sinistra della placca.`;
+  const reason = detection.state === 'too-small' ? 'Avvicinati al marker per leggere bene i suoi angoli.' : detection.state === 'wrong-id' ? `È visibile un altro marker: serve l’ID ${id}.` : detection.state === 'ambiguous' ? `Sono visibili più marker con ID ${id}: inquadrane uno solo.` : detection.state === 'clipped' ? 'Inquadra il marker intero, lasciando spazio attorno.' : `Inquadra il marker ${id} nella stessa posizione dello scatto.`;
 
   return <section className="camera-mode">
     <div className="mode-heading"><button className="quiet" onClick={onBack}>← Modalità</button><span role="status" className={`badge ${detected && !frame ? 'good' : ''}`}>{frame ? 'Collega alla foto' : detected ? `● ArUco ${id} rilevato` : `Ricerca ArUco ${id}…`}</span></div>
@@ -98,22 +98,22 @@ export default function ArucoView({ photo, boxes, marker, onCalibrate, onBack })
       <aside className="camera-controls panel aruco-controls">
         <div className="eyebrow">ARUCO · AGGANCIO AUTOMATICO</div><h2>{frame ? points.length === 4 ? 'Salva il collegamento' : `Prima scatola · ${cornerNames[points.length]}` : calibration ? 'Inquadra e ritrova le tracce' : 'Collega il marker alla foto'}</h2>
         <p>{frame ? 'Seleziona i quattro angoli della prima scatola nello stesso ordine della foto originale. Usa gli stessi angoli: il bordo di una placca più grande non equivale al bordo della scatola.' : calibration ? detected ? 'La foto segue il marker. Se esce dal campo, la sovrapposizione si nasconde e riprende quando torna visibile.' : reason : 'Per le foto già scattate, il primo collegamento si fa una sola volta: ferma il video con marker e prima scatola visibili.'}</p>
-        <div className="marker-kit"><div className="plate-diagram" aria-label="Marker in basso a sinistra della placca"><div className="plate-outline"><span>PLACCA</span><img src={preview} alt={`ArUco ${id} da stampare`} /></div></div><label>ID marker<input aria-label="ID marker ArUco" type="number" min="0" max="249" value={id} disabled={Boolean(frame)} onChange={(event) => { const next = Number(event.target.value); if (Number.isInteger(next) && next >= 0 && next < 250) { setId(next); setDetection({ state: 'missing', marker: null }); setError(''); } }} /></label><button className="secondary" onClick={() => downloadMarker(id)}>↓ Scarica marker SVG</button></div>
+        <div className="marker-kit"><div className="plate-diagram" aria-label="Marker in basso a sinistra della placca"><div className="plate-outline"><span>PLACCA</span><img src={preview} alt={`ArUco ${id} da stampare`} /></div></div><label>ID marker<input aria-label="ID marker ArUco" type="number" min="0" max="249" value={id} disabled={Boolean(frame) || !boxes.length} onChange={(event) => { const next = Number(event.target.value); if (Number.isInteger(next) && next >= 0 && next < 250) { setId(next); setDetection({ state: 'missing', marker: null }); setError(''); } }} /></label><button className="secondary" onClick={() => downloadMarker(id)}>↓ Scarica marker SVG</button></div>
         <div className="panel">
           <h3>Stampa termica · Kitty Printer</h3>
           <button className="secondary" onClick={async () => { try { await downloadMarkerPng(id); setError(''); } catch (cause) { setError(cause.message); } }}>↓ Scarica marker PNG per termica</button>
           <p>1. Scarica il PNG dell’ID {id}. 2. Apri Kitty Printer, collega la stampante e carica il PNG come immagine. 3. Stampa il quadrato intero, senza ritagliare il bordo bianco.</p>
           <a className="secondary" href="https://print.unseen-site.fun/" target="_blank" rel="noopener noreferrer">Apri Kitty Printer ↗</a>
-          <p>PNG 384 × 384 pixel, nero su bianco. Torna qui dopo la stampa, fissa il marker e premi «Ferma e collega marker» con marker e prima scatola visibili.</p>
+          <p>PNG 384 × 384 pixel con margine ridotto. Per le foto nuove: fissa il marker, scatta e carica la foto. Il collegamento viene riconosciuto automaticamente. Per le foto vecchie: usa «Ferma e collega marker» con la prima scatola visibile.</p>
         </div>
-        <p className="marker-placement">Fissa il marker in basso a sinistra della placca, sempre nella stessa posizione e sullo stesso piano dei riferimenti. Conserva il margine bianco e l’orientamento della stampa.</p>
+        <p className="marker-placement">Il marker deve restare nella stessa posizione e con lo stesso orientamento della foto, piatto sul piano della parete. Conserva il bordo bianco. Se lo sposti, rifai la foto o il collegamento.</p>
         {frame && <><img className="reference-thumb" src={photo} alt="Prima scatola nella foto originale" /><progress aria-label="Angoli di calibrazione ArUco" max="4" value={points.length} /></>}
         {(error || projection.error) && <div role="alert" className="notice">{error || projection.error}</div>}
         {status === 'error' ? <button className="primary" onClick={() => { setError(''); setStatus('opening'); setAttempt(attempt + 1); }}>Riprova fotocamera</button> : frame ? <>
           <button className="primary" disabled={points.length !== 4} onClick={save}>Salva collegamento ArUco</button>
           <button className="quiet" disabled={!points.length} onClick={() => setPoints(points.slice(0, -1))}>↶ Annulla angolo</button>
           <button className="quiet" onClick={() => { setFrame(null); setPoints([]); }}>Annulla calibrazione</button>
-        </> : <button className={calibration ? 'secondary' : 'primary'} disabled={status !== 'live' || !detected} onClick={freeze}>{calibration ? 'Ricalibra marker' : 'Ferma e collega marker'}</button>}
+        </> : boxes.length > 0 ? <button className={calibration ? 'secondary' : 'primary'} disabled={status !== 'live' || !detected} onClick={freeze}>{calibration ? 'Ricalibra marker' : 'Ferma e collega marker'}</button> : <p>Collegamento dalla foto pronto: basta inquadrare il marker, senza calibrazione manuale.</p>}
         {calibration && !frame && <label className="range-label">Visibilità foto <output>{Math.round(opacity * 100)}%</output><input aria-label="Visibilità foto" type="range" min="0" max="1" step="0.01" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label>}
         <small>Dizionario ARUCO_MIP_36h12, ID 0–249. Il collegamento resta nel localStorage e nell’esportazione della sessione. Verifica l’allineamento lontano dal marker.</small>
       </aside>

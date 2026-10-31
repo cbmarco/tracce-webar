@@ -2,7 +2,7 @@
 export function validatePhotoCalibration(value) {
   return value?.version === 1 && typeof value.imageName === 'string'
     && (value.marker == null || validateMarkerAlignment(value.marker))
-    && Array.isArray(value.boxes) && value.boxes.length > 0 && value.boxes.length <= 20
+    && Array.isArray(value.boxes) && (value.boxes.length > 0 || validateMarkerAlignment(value.marker)) && value.boxes.length <= 20
     && value.boxes.every((box) => Array.isArray(box.points) && box.points.length === 4
       && box.points.every((p) => Array.isArray(p) && p.length === 2
         && p.every((n) => Number.isFinite(n) && n >= 0 && n <= 1))
@@ -109,7 +109,7 @@ export const ARUCO_DICTIONARY = 'ARUCO_MIP_36h12';
 
 export function validateMarkerAlignment(marker) {
   return marker?.dictionary === ARUCO_DICTIONARY && Number.isInteger(marker.id) && marker.id >= 0 && marker.id < 250
-    && marker.placement === 'plate-bottom-left' && Array.isArray(marker.sourceCorners) && marker.sourceCorners.length === 4
+    && ['plate-bottom-left', 'wall-fixed'].includes(marker.placement) && Array.isArray(marker.sourceCorners) && marker.sourceCorners.length === 4
     && marker.sourceCorners.every((point) => Array.isArray(point) && point.length === 2
       && point.every((n) => Number.isFinite(n) && Math.abs(n) <= 16))
     && polygonArea(marker.sourceCorners) > 0.000001 && isConvex(marker.sourceCorners);
