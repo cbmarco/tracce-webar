@@ -7,6 +7,7 @@ const allowed = new Set([
   ...['Annotator.jsx', 'ArucoView.jsx', 'aruco.js', 'aruco.test.js', 'App.jsx', 'CameraView.jsx', 'XRView.jsx', 'main.jsx', 'photoTracker.js', 'photoTracker.test.js', 'session.js', 'storage.js', 'storage.test.js', 'style.css', 'webxr.js'].map((p) => `src/${p}`),
   'public/third-party-notices.txt',
   'src/lib/photoAlignment.js', 'src/lib/photoAlignment.test.js',
+  'src/markerTracking.js', 'src/markerTracking.test.js',
 ]);
 const ignored = new Set(['.git', 'node_modules', 'dist', 'test-results', 'playwright-report', '.vite', 'coverage']);
 const forbidden = /IMG_[0-9]{3,}|cason[-]wiki|\/home\/[a-z]+|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]{256}/;

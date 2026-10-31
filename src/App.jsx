@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { validatePhotoCalibration } from './lib/photoAlignment.js';
+import { markerReferences, validatePhotoCalibration } from './lib/photoAlignment.js';
 import Annotator from './Annotator.jsx';
 import { cornerNames } from './session.js';
 import { downloadSession, fileDataUrl, readSession } from './session.js';
@@ -89,7 +89,7 @@ export default function App() {
         const { markerFromPhoto } = await import('./aruco.js');
         const detected = await markerFromPhoto(url);
         setMarker(detected); setSavedReference(false);
-        setMessage(`Marker ${detected.id} riconosciuto nella foto. Puoi aprire subito WebAR con marker, senza selezionare scatole.`);
+        setMessage(`${markerReferences(detected).length} marker riconosciuti nella foto: ID ${markerReferences(detected).map((m) => m.id).join(', ')}. Puoi aprire subito WebAR con marker.`);
       } catch (cause) { setMessage(cause.message); }
     } catch { setMessage('Non riesco ad aprire questa foto. Prova un file JPG, PNG o WebP.'); }
     finally { setBusy(false); }
@@ -141,7 +141,7 @@ export default function App() {
         </div>
         <section className="panel local-library">
           <h2>Prima della foto: stampa il marker</h2>
-          <p>Fissalo piatto sul piano della parete e lascialo fermo durante foto e prova dal vivo. Usa un ID diverso per ogni parete; nella foto deve essere visibile un solo marker, intero e ben leggibile.</p>
+          <p>Fissalo piatto sul piano della parete e lascialo fermo durante foto e prova dal vivo. Per una parete ampia usa tre marker con ID diversi, distribuiti a triangolo sullo stesso piano. Includili tutti interi e leggibili nella foto; nella vista AR dovranno esserne visibili almeno due.</p>
           <label>ID da stampare <input aria-label="ID da stampare" type="number" min="0" max="249" value={printId} onChange={(event) => { const n = Number(event.target.value); if (Number.isInteger(n) && n >= 0 && n < 250) setPrintId(n); }} /></label>
           <button className="secondary" onClick={async () => { try { const { downloadMarkerPng } = await import('./aruco.js'); await downloadMarkerPng(printId); } catch (cause) { setMessage(cause.message); } }}>↓ Scarica marker PNG per termica</button>
           <p><a href="https://print.unseen-site.fun/" target="_blank" rel="noopener noreferrer">Apri Kitty Printer ↗</a> e carica il PNG come immagine. Conserva il bordo bianco. Il marker già stampato funziona anche con le foto nuove.</p>
@@ -151,10 +151,10 @@ export default function App() {
       {step === 1 && <>
         <div className="section-heading"><div><div className="eyebrow">01 / PREPARAZIONE</div><h1>{marker ? 'Foto pronta per WebAR.' : 'Trova i tuoi punti fermi.'}</h1><p>{imageName} · {boxes.length} {boxes.length === 1 ? 'scatola pronta' : 'scatole pronte'}</p></div><button className="quiet" onClick={() => setStep(0)}>Cambia foto</button></div>
         {marker && <section className="panel local-library" aria-label="Marker nella foto">
-          <h2>✓ Marker {marker.id} pronto</h2>
-          <p>La foto è collegata al marker. Non servono angoli delle scatole: inquadra lo stesso marker nella stessa posizione sulla parete.</p>
+          <h2>{markerReferences(marker).length > 1 ? `✓ ${markerReferences(marker).length} marker pronti` : `✓ Marker ${marker.id} pronto`}</h2>
+          <p>La foto è collegata agli ID {markerReferences(marker).map((m) => m.id).join(', ')}. Non servono angoli delle scatole. {markerReferences(marker).length > 1 ? 'Inquadra almeno due dei marker salvati per un allineamento comune.' : 'Inquadra lo stesso marker nella stessa posizione sulla parete.'}</p>
           <button className="primary" disabled={!valid} onClick={() => setMode('aruco')}>Apri WebAR con marker →</button>
-          <p>Se il marker viene spostato, rifai la foto. I riferimenti delle scatole qui sotto sono facoltativi e servono per le altre modalità.</p>
+          <p>Se sposti uno dei marker, rifai la foto. I riferimenti delle scatole qui sotto sono facoltativi e servono per le altre modalità.</p>
         </section>}
         <details open={!marker || marker.placement !== 'wall-fixed'}><summary>{marker ? 'Riferimenti delle scatole (facoltativi)' : 'Foto senza marker: indica gli angoli delle scatole'}</summary>
         <div className="prepare-grid"><div><div className="photo-toolbar"><div><span className="eyebrow">SCATOLA {editing === null ? boxes.length + 1 : Math.floor(editing / 4) + 1}</span><strong>{editing === null ? `Tocca ${cornerNames[pending.length]}` : `Correggi ${cornerNames[editing % 4]}`}</strong></div></div><Annotator src={photo} points={[...boxes.flatMap((box) => box.points), ...pending]} activeIndex={editing} onPoint={pointSelected} />
@@ -171,7 +171,7 @@ export default function App() {
       </>}
       {step === 2 && <>
         <div className="intro compact"><div className="eyebrow">02 / SULLA PARETE</div><h1>Dal cantiere a oggi.</h1><p>Riferimenti pronti. Scegli come sovrapporre la foto.</p></div>
-        <div className="mode-grid"><section className="panel mode-card"><span className="badge good">{marker ? `ArUco ${marker.id} collegato` : 'Aggancio automatico con marker'}</span><div className="mode-symbol">▦</div><h2>ArUco sulla placca</h2><p>Foto con marker: inquadra lo stesso marker, fermo nella posizione dello scatto. Per le foto vecchie usa il collegamento tramite scatola.</p><ul><li>Scarica il marker da stampare direttamente dall’app</li><li>Foto con marker: collegamento automatico al caricamento</li><li>Riconoscimento e riaggancio automatici nel browser</li></ul><button className="primary" onClick={() => setMode('aruco')}>Apri ArUco →</button></section><section className="panel mode-card"><span className={`badge ${xrSupported ? 'good' : ''}`}>{xrSupported === null ? 'Verifica dispositivo…' : xrSupported ? 'Disponibile sul dispositivo' : 'Non disponibile su questo browser'}</span><div className="mode-symbol">◎</div><h2>WebAR spaziale</h2><p>Ancora la foto alla parete e muoviti nella stanza. Il dispositivo segue posizione e orientamento.</p><ul><li>Mirino guidato sui quattro angoli della prima scatola</li><li>Allineamento dai punti rilevati sulla parete</li><li>Richiede una scatola annotata, WebXR e HTTPS</li></ul><button className="primary" disabled={!xrSupported || !hasBoxes} onClick={() => setMode('xr')}>Apri WebAR →</button></section>
+        <div className="mode-grid"><section className="panel mode-card"><span className="badge good">{marker ? markerReferences(marker).length > 1 ? `${markerReferences(marker).length} marker collegati` : `ArUco ${marker.id} collegato` : 'Aggancio automatico con marker'}</span><div className="mode-symbol">▦</div><h2>ArUco sulla placca</h2><p>Foto con marker: inquadra lo stesso marker, fermo nella posizione dello scatto. Per le foto vecchie usa il collegamento tramite scatola.</p><ul><li>Scarica il marker da stampare direttamente dall’app</li><li>Foto con marker: collegamento automatico al caricamento</li><li>Riconoscimento e riaggancio automatici nel browser</li></ul><button className="primary" onClick={() => setMode('aruco')}>Apri ArUco →</button></section><section className="panel mode-card"><span className={`badge ${xrSupported ? 'good' : ''}`}>{xrSupported === null ? 'Verifica dispositivo…' : xrSupported ? 'Disponibile sul dispositivo' : 'Non disponibile su questo browser'}</span><div className="mode-symbol">◎</div><h2>WebAR spaziale</h2><p>Ancora la foto alla parete e muoviti nella stanza. Il dispositivo segue posizione e orientamento.</p><ul><li>Mirino guidato sui quattro angoli della prima scatola</li><li>Allineamento dai punti rilevati sulla parete</li><li>Richiede una scatola annotata, WebXR e HTTPS</li></ul><button className="primary" disabled={!xrSupported || !hasBoxes} onClick={() => setMode('xr')}>Apri WebAR →</button></section>
           <section className="panel mode-card"><span className="badge">Fotocamera del browser</span><div className="mode-symbol">⌖</div><h2>Foto in sovrapposizione</h2><p>Allinea tutti i riferimenti su un fotogramma e seguili nel video. Utile anche quando WebXR non è supportato.</p><ul><li>Richiede almeno una scatola annotata nella foto</li><li>Omografia con tutte le scatole annotate</li><li>Tracking video sperimentale, richiede HTTPS o localhost</li></ul><button disabled={!hasBoxes} className={xrSupported ? 'secondary' : 'primary'} onClick={() => setMode('camera')}>Apri fotocamera →</button></section></div>
         <div className="session-footer"><button className="quiet" onClick={() => setStep(1)}>← Modifica riferimenti</button><button className="secondary" onClick={() => { downloadSession(calibration, photo); setSavedReference(true); }}>↓ Esporta sessione</button></div>
       </>}

@@ -1,5 +1,6 @@
 import aruco from 'js-aruco2';
-import { ARUCO_DICTIONARY } from './lib/photoAlignment.js';
+import { ARUCO_DICTIONARY, markerReferences } from './lib/photoAlignment.js';
+import { fitMarkerAlignment } from './markerTracking.js';
 
 const { AR } = aruco;
 let dictionary;
@@ -30,15 +31,36 @@ export function findMarker(imageData, id, detector) {
 export function markerFromPhotoPixels(imageData, detector = createMarkerDetector()) {
   const detected = detector.detect(imageData);
   if (!detected.length) throw new Error('Nessun marker leggibile nella foto. Avvicinati, lascia visibile il bordo bianco e scatta di nuovo, oppure usa i riferimenti delle scatole.');
-  if (detected.length !== 1) throw new Error('Nella foto sono visibili più marker. Usa una foto con un solo marker per collegare questa parete.');
-  const result = findMarker(imageData, detected[0].id, { detect: () => detected });
-  if (!result.marker) throw new Error('Il marker nella foto è troppo piccolo o vicino al bordo. Scatta di nuovo con il marker intero e più grande.');
-  return { dictionary: ARUCO_DICTIONARY, id: result.marker.id, placement: 'wall-fixed', sourceCorners: result.marker.corners };
+  if (new Set(detected.map((marker) => marker.id)).size !== detected.length) throw new Error('Ci sono più marker con lo stesso ID. Ogni marker della foto deve avere un ID diverso.');
+  if (detected.length > 12) throw new Error('Usa al massimo 12 marker per foto.');
+  const references = detected.sort((a, b) => a.id - b.id).map(({ id }) => {
+    const result = findMarker(imageData, id, { detect: () => detected });
+    if (!result.marker) throw new Error(`Il marker ${id} nella foto è troppo piccolo o vicino al bordo. Scatta di nuovo con tutti i marker interi e più grandi.`);
+    return { id, sourceCorners: result.marker.corners };
+  });
+  return { dictionary: ARUCO_DICTIONARY, ...references[0], placement: 'wall-fixed', ...(references.length > 1 ? { references } : {}) };
+}
+
+export function findTrackedMarkers(imageData, alignment, detector) {
+  const refs = markerReferences(alignment);
+  const detected = detector.detect(imageData);
+  const matches = [];
+  let failure = detected.length ? 'wrong-id' : 'missing';
+  for (const reference of refs) {
+    const result = findMarker(imageData, reference.id, { detect: () => detected });
+    if (result.state === 'ambiguous') return { state: 'ambiguous', marker: null, count: 0 };
+    if (result.marker) matches.push({ ...reference, corners: result.marker.corners });
+    else if (['too-small', 'clipped'].includes(result.state)) failure = result.state;
+  }
+  if (matches.length < 2) return { state: matches.length ? 'insufficient' : failure, marker: null, count: matches.length };
+  const fitted = fitMarkerAlignment(matches, imageData.width, imageData.height);
+  if (!fitted) return { state: 'inconsistent', marker: null, count: matches.length };
+  return { state: 'found', marker: fitted.matches[0], matches: fitted.matches, homography: fitted.homography, count: fitted.matches.length };
 }
 
 export async function markerFromPhoto(source) {
   const image = new Image(); image.src = source; await image.decode();
-  const scale = Math.min(1, 1920 / Math.max(image.naturalWidth, image.naturalHeight));
+  const scale = Math.min(1, 2560 / Math.max(image.naturalWidth, image.naturalHeight));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(image.naturalWidth * scale); canvas.height = Math.round(image.naturalHeight * scale);
   const context = canvas.getContext('2d', { willReadFrequently: true });

@@ -284,3 +284,70 @@ test('new marker photo opens WebAR without boxes and survives export, import and
   await page.getByRole('button', { name: 'Apri WebAR con marker' }).click();
   await expect(page.getByAltText('Tracce agganciate ad ArUco')).toBeVisible();
 });
+
+async function multiMarkerScene(page) {
+  return page.evaluate(async (svgs) => {
+    const images = await Promise.all(svgs.map(async (svg) => { const image = new Image(); image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; await image.decode(); return image; }));
+    const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 800;
+    const context = canvas.getContext('2d');
+    const positions = [[80, 100], [980, 180], [500, 620]];
+    window.__multiScene = [0, 1, 2];
+    function draw(live) {
+      context.fillStyle = '#ddd'; context.fillRect(0, 0, 1200, 800);
+      positions.forEach(([x, y], id) => {
+        if (!window.__multiScene.includes(id)) return;
+        context.drawImage(images[id], live ? x * 0.85 + 40 : x, live ? y * 0.85 + 20 : y, live ? 85 : 100, live ? 85 : 100);
+      });
+    }
+    draw(false);
+    const photo = canvas.toDataURL('image/png');
+    navigator.mediaDevices.getUserMedia = async () => {
+      draw(true);
+      const stream = canvas.captureStream(10); const timer = setInterval(() => draw(true), 100);
+      const track = stream.getVideoTracks()[0]; const stop = track.stop.bind(track);
+      track.stop = () => { clearInterval(timer); stop(); };
+      return stream;
+    };
+    return photo;
+  }, [markerSvg(0), markerSvg(1), markerSvg(2)]);
+}
+
+test('three-marker wall uses a common transform, hides with one marker, and preserves references', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/tracce-webar/');
+  const photo = await multiMarkerScene(page);
+  await page.getByLabel('Foto originale').setInputFiles({ name: 'three-marker-wall.png', mimeType: 'image/png', buffer: Buffer.from(photo.split(',')[1], 'base64') });
+  await expect(page.getByRole('heading', { name: '✓ 3 marker pronti' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Apri WebAR con marker' }).click();
+  await expect(page.getByText('● 3/3 marker agganciati', { exact: true })).toBeVisible();
+  const projection = page.getByAltText('Tracce agganciate ad ArUco');
+  await expect(projection).toBeVisible();
+  const projected = await projection.evaluate((image) => {
+    const m = new DOMMatrix(image.style.transform); const p = m.transformPoint(new DOMPoint(image.naturalWidth * 0.5, image.naturalHeight * 0.5));
+    const stage = image.parentElement.getBoundingClientRect(); return [p.x / p.w / stage.width, p.y / p.w / stage.height];
+  });
+  expect(projected[0]).toBeCloseTo(0.5 * 0.85 + 40 / 1200, 2);
+  expect(projected[1]).toBeCloseTo(0.5 * 0.85 + 20 / 800, 2);
+  await page.evaluate(() => { window.__multiScene = [1, 2]; });
+  await expect(page.getByText('● 2/3 marker agganciati', { exact: true })).toBeVisible();
+  await expect(projection).toBeVisible();
+  await page.evaluate(() => { window.__multiScene = [2]; });
+  await expect(projection).toHaveCount(0);
+  await expect(page.getByText('1/3 marker · servono almeno 2', { exact: true })).toBeVisible();
+  await page.evaluate(() => { window.__multiScene = [0, 2]; });
+  await expect(projection).toBeVisible();
+  await page.getByRole('button', { name: 'Modalità' }).click();
+  await page.getByRole('navigation', { name: 'Passaggi' }).getByRole('button').nth(2).click();
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Esporta sessione' }).click();
+  const path = await (await pending).path();
+  await page.getByLabel('Importa sessione').setInputFiles(path);
+  await expect(page.getByRole('heading', { name: '✓ 3 marker pronti' })).toBeVisible();
+  await expect(page.getByText('✓ Salvato solo su questo dispositivo')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '✓ 3 marker pronti' })).toBeVisible();
+  await multiMarkerScene(page);
+  await page.getByRole('button', { name: 'Apri WebAR con marker' }).click();
+  await expect(page.getByText('● 3/3 marker agganciati', { exact: true })).toBeVisible();
+});

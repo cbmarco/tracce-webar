@@ -107,12 +107,26 @@ export function wallPhotoPlane(box, hits) {
 
 export const ARUCO_DICTIONARY = 'ARUCO_MIP_36h12';
 
-export function validateMarkerAlignment(marker) {
+function validMarkerReference(marker) {
   return marker?.dictionary === ARUCO_DICTIONARY && Number.isInteger(marker.id) && marker.id >= 0 && marker.id < 250
     && ['plate-bottom-left', 'wall-fixed'].includes(marker.placement) && Array.isArray(marker.sourceCorners) && marker.sourceCorners.length === 4
     && marker.sourceCorners.every((point) => Array.isArray(point) && point.length === 2
       && point.every((n) => Number.isFinite(n) && Math.abs(n) <= 16))
     && polygonArea(marker.sourceCorners) > 0.000001 && isConvex(marker.sourceCorners);
+}
+
+export function markerReferences(marker) {
+  return marker?.references ?? (marker ? [{ id: marker.id, sourceCorners: marker.sourceCorners }] : []);
+}
+
+export function validateMarkerAlignment(marker) {
+  if (!validMarkerReference(marker)) return false;
+  if (marker.references === undefined) return true;
+  const refs = marker.references;
+  return Array.isArray(refs) && refs.length >= 1 && refs.length <= 12
+    && refs.every((ref) => validMarkerReference({ dictionary: marker.dictionary, placement: marker.placement, ...ref }))
+    && new Set(refs.map((ref) => ref.id)).size === refs.length
+    && refs[0].id === marker.id && JSON.stringify(refs[0].sourceCorners) === JSON.stringify(marker.sourceCorners);
 }
 
 export function markerSourceFromFrame(id, photoPoints, framePoints, markerPoints) {

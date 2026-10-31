@@ -20,10 +20,12 @@ L'immagine non è una verifica sufficiente per decidere dove forare.
 ## Foto nuove con marker (percorso consigliato)
 
 1. Dalla schermata iniziale scegli un ID e scarica il PNG per termica. Apri Kitty Printer e stampa il PNG senza ritagliare il bordo bianco. La stampa usa solo il margine del dizionario, senza quello aggiuntivo precedente; i marker già stampati restano validi.
-2. Fissa il marker piatto sul piano della parete, in una posizione stabile. Usa ID diversi per pareti diverse e un solo marker visibile per foto.
-3. Scatta le tracce includendo il marker intero e ben leggibile, poi carica la foto in Tracce. Il riconoscimento avviene localmente e collega direttamente gli angoli del marker alla foto.
-4. Premi **Apri WebAR con marker** e inquadra lo stesso marker, nella stessa posizione e orientamento: la foto si sovrappone senza selezionare scatole.
-5. Il collegamento viene salvato nel browser e nel JSON esportato. Se sposti il marker, rifai la foto; il solo ID non permette di ricostruirne la posizione originale.
+2. Fissa il marker piatto sul piano della parete, in una posizione stabile. Per una parete ampia usa tre marker con ID diversi, distribuiti a triangolo sullo stesso piano della parete. Includili tutti nella foto e usa ID diversi anche sulle altre pareti.
+3. Scatta le tracce includendo il marker intero e ben leggibile, poi carica la foto in Tracce. Il riconoscimento avviene localmente e salva gli angoli di tutti i marker leggibili nella foto (fino a 12). ID duplicati o marker rilevati troppo piccoli/tagliati vengono segnalati.
+4. Premi **Apri WebAR con marker** e inquadra gli stessi marker, nella stessa posizione e orientamento: la foto si sovrappone senza selezionare scatole. Per le foto con più marker servono almeno due riferimenti leggibili e concordi; la barra indica quanti sono usati.
+5. Il collegamento viene salvato nel browser e nel JSON esportato. Se sposti uno dei marker, rifai la foto; il solo ID non permette di ricostruirne la posizione originale.
+
+L’allineamento con più marker usa insieme tutti gli angoli concordi e scarta i gruppi incoerenti. Con meno di due marker utilizzabili la sovrapposizione si nasconde e si riaggancia quando tornano visibili. Le sessioni precedenti con un solo marker restano compatibili e mantengono il loro funzionamento. La precisione reale va verificata sul posto; più marker non sostituiscono una stampa leggibile.
 
 Se il marker non viene letto, l’app lo segnala e permette di usare il percorso tramite scatole. Le modalità WebXR spaziale e fotocamera manuale richiedono ancora almeno una scatola annotata. Il percorso con marker usa l’omografia nel video del browser e allinea il piano della parete.
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createMarkerDetector, findMarker, markerFromPhotoPixels, markerSvg } from './aruco.js';
+import { createMarkerDetector, findMarker, findTrackedMarkers, markerFromPhotoPixels, markerSvg } from './aruco.js';
 
 // Rasterize the generated SVG in memory: no reference photos or binary fixtures.
-function syntheticMarker(id, rotation = 0, duplicate = false) {
+function syntheticMarker(id, rotation = 0, duplicate = false, secondId = id) {
   const width = 500; const height = 400;
   const data = new Uint8ClampedArray(width * height * 4).fill(255);
-  function draw(offsetX, offsetY) {
-    for (const match of markerSvg(id).matchAll(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="(white|black)"\/>/g)) {
+  function draw(offsetX, offsetY, drawId = id) {
+    for (const match of markerSvg(drawId).matchAll(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="(white|black)"\/>/g)) {
       const [, x, y, w, h, color] = match;
       for (let row = Number(y) * 12; row < (Number(y) + Number(h)) * 12; row++) {
         for (let col = Number(x) * 12; col < (Number(x) + Number(w)) * 12; col++) {
@@ -18,7 +18,7 @@ function syntheticMarker(id, rotation = 0, duplicate = false) {
       }
     }
   }
-  draw(190, 140); if (duplicate) draw(30, 30);
+  draw(190, 140); if (duplicate) draw(30, 30, secondId);
   return { data, width, height };
 }
 
@@ -44,11 +44,24 @@ describe('ArUco print and detection', () => {
   });
 });
 
-it('uses the marker in a new photo directly and refuses missing or multiple references', () => {
+it('uses the marker in a new photo directly and refuses missing or duplicate references', () => {
   const marker = markerFromPhotoPixels(syntheticMarker(7, 1));
   expect(marker).toMatchObject({ id: 7, placement: 'wall-fixed', dictionary: 'ARUCO_MIP_36h12' });
   expect(marker.sourceCorners).toHaveLength(4);
-  expect(() => markerFromPhotoPixels(syntheticMarker(7, 0, true))).toThrow('più marker');
+  expect(() => markerFromPhotoPixels(syntheticMarker(7, 0, true))).toThrow('stesso ID');
   const blank = syntheticMarker(7); blank.data.fill(255);
   expect(() => markerFromPhotoPixels(blank)).toThrow('Nessun marker');
+});
+
+it('detects different marker IDs together and preserves their corners in the photo', () => {
+  const pixels = syntheticMarker(7, 0, true, 8);
+  const marker = markerFromPhotoPixels(pixels);
+  expect(marker.references.map((m) => m.id)).toEqual([7, 8]);
+  const result = findTrackedMarkers(pixels, marker, createMarkerDetector());
+  expect(result.state).toBe('found');
+  expect(result.count).toBe(2);
+  expect(result.homography[0]).toBeCloseTo(1, 5);
+  expect(result.homography[4]).toBeCloseTo(1, 5);
+  expect(findTrackedMarkers(syntheticMarker(7), marker, createMarkerDetector()).state).toBe('insufficient');
+  expect(findTrackedMarkers(syntheticMarker(7, 0, true), marker, createMarkerDetector()).state).toBe('ambiguous');
 });

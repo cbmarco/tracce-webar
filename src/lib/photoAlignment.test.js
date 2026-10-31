@@ -72,3 +72,13 @@ it('allows marker-only sessions while still requiring a valid reference and vali
   expect(validatePhotoCalibration({ ...session, marker: { ...marker, id: -1 } })).toBe(false);
   expect(validatePhotoCalibration({ ...session, boxes: [{ points: [[0, 0]] }] })).toBe(false);
 });
+
+it('validates multi-marker sessions and rejects duplicate IDs or corrupt references', () => {
+  const sourceCorners = [[0.1, 0.1], [0.2, 0.1], [0.2, 0.2], [0.1, 0.2]];
+  const marker = { dictionary: ARUCO_DICTIONARY, id: 7, placement: 'wall-fixed', sourceCorners, references: [{ id: 7, sourceCorners }, { id: 8, sourceCorners }] };
+  expect(validatePhotoCalibration({ version: 1, imageName: 'multi', boxes: [], marker })).toBe(true);
+  expect(validateMarkerAlignment({ ...marker, references: [marker.references[0], marker.references[0]] })).toBe(false);
+  expect(validateMarkerAlignment({ ...marker, references: [] })).toBe(false);
+  expect(validateMarkerAlignment({ ...marker, references: [marker.references[0], { id: 8, sourceCorners: [[NaN, 0]] }] })).toBe(false);
+  expect(validateMarkerAlignment({ ...marker, references: [marker.references[1]] })).toBe(false);
+});
