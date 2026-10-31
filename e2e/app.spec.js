@@ -329,12 +329,29 @@ test('three-marker wall uses a common transform, hides with one marker, and pres
   });
   expect(projected[0]).toBeCloseTo(0.5 * 0.85 + 40 / 1200, 2);
   expect(projected[1]).toBeCloseTo(0.5 * 0.85 + 20 / 800, 2);
+  await page.getByRole('button', { name: 'Applica griglia quotata' }).click();
+  await expect(page.getByRole('alert')).toContainText('misura positiva');
+  await page.getByLabel('Misura reale in cm').fill('16');
+  await page.getByRole('button', { name: 'Applica griglia quotata' }).click();
+  const grid = page.getByRole('img', { name: 'Griglia quotata, passo 10 cm, origine ID 0' });
+  await expect(grid).toBeVisible();
+  const gridX = await grid.locator('line[data-axis="x"][data-cm="10"]').evaluate((line) => Number(line.getAttribute('x1')) / line.closest('svg').viewBox.baseVal.width);
+  expect(gridX).toBeCloseTo((180 * 0.85 + 40) / 1200, 2);
+  await page.getByLabel('Mostra griglia quotata', { exact: true }).uncheck();
+  await expect(grid).toHaveCount(0);
+  await page.getByLabel('Mostra griglia quotata', { exact: true }).check();
+  await expect(grid).toBeVisible();
+  await page.getByLabel('Misura di riferimento', { exact: true }).selectOption('distance');
+  await page.getByLabel('Misura reale in cm').fill(String(Math.hypot(900, 80) / 5));
+  await page.getByRole('button', { name: 'Applica griglia quotata' }).click();
+  await expect(grid).toBeVisible();
   await page.evaluate(() => { window.__multiScene = [1, 2]; });
   await expect(page.getByText('● 2/3 marker agganciati', { exact: true })).toBeVisible();
   await expect(projection).toBeVisible();
   await page.evaluate(() => { window.__multiScene = [2]; });
   await expect(projection).toHaveCount(0);
   await expect(page.getByText('1/3 marker · servono almeno 2', { exact: true })).toBeVisible();
+  await expect(grid).toHaveCount(0);
   await page.evaluate(() => { window.__multiScene = [0, 2]; });
   await expect(projection).toBeVisible();
   await page.getByRole('button', { name: 'Modalità' }).click();
@@ -350,4 +367,37 @@ test('three-marker wall uses a common transform, hides with one marker, and pres
   await multiMarkerScene(page);
   await page.getByRole('button', { name: 'Apri WebAR con marker' }).click();
   await expect(page.getByText('● 3/3 marker agganciati', { exact: true })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Griglia quotata, passo 10 cm, origine ID 0' })).toBeVisible();
+  await expect(page.getByLabel('Misura di riferimento', { exact: true })).toHaveValue('distance');
+});
+
+
+test('A4 template downloads at physical page size with a detectable 16 cm black square', async ({ page }) => {
+  await page.goto('/tracce-webar/');
+  await page.getByLabel('ID da stampare').fill('12');
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Scarica dima A4' }).click();
+  const download = await pending;
+  expect(download.suggestedFilename()).toBe('aruco-mip36h12-12-A4.svg');
+  const stream = await download.createReadStream(); const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const svg = Buffer.concat(chunks).toString('utf8');
+  expect(svg).toContain('width="210mm" height="297mm"');
+  const printed = await page.evaluate(async (source) => {
+    const image = new Image(); image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source)}`; await image.decode();
+    const canvas = document.createElement('canvas'); canvas.width = 420; canvas.height = 594;
+    const context = canvas.getContext('2d', { willReadFrequently: true }); context.drawImage(image, 0, 0, 420, 594);
+    const { findMarker, createMarkerDetector } = await import('/tracce-webar/src/aruco.js');
+    const detection = findMarker(context.getImageData(0, 0, 420, 594), 12, createMarkerDetector());
+    const row = context.getImageData(0, 115, 420, 1).data;
+    let blackPixels = 0;
+    for (let i = 0; i < row.length; i += 4) if (row[i] < 128) blackPixels++;
+    return { ...detection, blackSideMm: blackPixels / 2 };
+  }, svg);
+  expect(printed.state).toBe('found');
+  const [a, b] = printed.marker.corners;
+  const sideMm = Math.hypot((a[0] - b[0]) * 210, (a[1] - b[1]) * 297);
+  // Detection returns pixel centers, while the printed edges span full pixels.
+  expect(Math.abs(sideMm - 160)).toBeLessThanOrEqual(0.5);
+  expect(printed.blackSideMm).toBe(160);
 });

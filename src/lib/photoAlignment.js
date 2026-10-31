@@ -121,12 +121,22 @@ export function markerReferences(marker) {
 
 export function validateMarkerAlignment(marker) {
   if (!validMarkerReference(marker)) return false;
+  if (marker.grid != null && !validateGridSettings(marker, marker.grid)) return false;
   if (marker.references === undefined) return true;
   const refs = marker.references;
   return Array.isArray(refs) && refs.length >= 1 && refs.length <= 12
     && refs.every((ref) => validMarkerReference({ dictionary: marker.dictionary, placement: marker.placement, ...ref }))
     && new Set(refs.map((ref) => ref.id)).size === refs.length
     && refs[0].id === marker.id && JSON.stringify(refs[0].sourceCorners) === JSON.stringify(marker.sourceCorners);
+}
+
+export function validateGridSettings(marker, grid) {
+  const ids = markerReferences(marker).map((ref) => ref.id);
+  return grid != null && typeof grid.enabled === 'boolean'
+    && ['side', 'distance'].includes(grid.method) && ids.includes(grid.originId)
+    && Number.isFinite(grid.valueCm) && grid.valueCm >= 0.01 && grid.valueCm <= 100000
+    && Number.isFinite(grid.stepCm) && grid.stepCm >= 1 && grid.stepCm <= 1000
+    && (grid.method !== 'distance' || (ids.includes(grid.otherId) && grid.otherId !== grid.originId));
 }
 
 export function markerSourceFromFrame(id, photoPoints, framePoints, markerPoints) {

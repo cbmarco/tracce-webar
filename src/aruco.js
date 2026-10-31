@@ -75,6 +75,29 @@ export function downloadMarker(id) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+export function markerA4Svg(id) {
+  const marker = markerSvg(id).replace('<svg ', '<svg x="5" y="35" width="200" height="200" ');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+<rect width="210" height="297" fill="white"/>
+<g font-family="sans-serif" fill="black">
+<text x="10" y="14" font-size="6">TRACCE · Dima A4 · ID ${id}</text>
+<text x="10" y="23" font-size="3.8">Stampa al 100% / dimensioni effettive. Non adattare.</text>
+${marker}
+<text x="10" y="246" font-size="4.5">Lato del quadrato nero: 160 mm (16 cm)</text>
+<text x="10" y="254" font-size="3.5">Misura il nero, senza il bordo bianco. Fissa sul piano della parete.</text>
+<text x="55" y="266" font-size="4">Controllo scala: 100 mm</text>
+<path d="M55 270H155 M55 267V273 M155 267V273" fill="none" stroke="black" stroke-width="0.4"/>
+<text x="10" y="286" font-size="3.5">Verifica la stampa con un righello prima di impostare la griglia.</text>
+</g></svg>`;
+}
+
+export function downloadMarkerA4(id) {
+  const url = URL.createObjectURL(new Blob([markerA4Svg(id)], { type: 'image/svg+xml' }));
+  const link = document.createElement('a');
+  link.href = url; link.download = `aruco-mip36h12-${id}-A4.svg`; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export async function downloadMarkerPng(id) {
   const source = markerSvg(id);
   const image = new Image();

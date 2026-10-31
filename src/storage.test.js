@@ -32,3 +32,12 @@ it('preserves a calibrated marker locally and rejects corrupt marker data', () =
   expect(readLocalLibrary(storage).sessions[0].marker).toEqual(marker);
   expect(() => writeLocalLibrary([{ ...session, marker: { ...marker, id: 250 } }], 'test', storage)).toThrow('non valida');
 });
+
+it('preserves metric grid settings and rejects invalid real-world scale', () => {
+  const marker = { dictionary: 'ARUCO_MIP_36h12', id: 7, placement: 'wall-fixed', sourceCorners: [[0.1, 0.1], [0.2, 0.1], [0.2, 0.2], [0.1, 0.2]], grid: { enabled: true, method: 'side', originId: 7, valueCm: 16, stepCm: 10 } };
+  let raw;
+  const storage = { getItem: () => raw, setItem: (_key, value) => { raw = value; } };
+  writeLocalLibrary([{ ...session, marker }], 'test', storage);
+  expect(readLocalLibrary(storage).sessions[0].marker.grid).toEqual(marker.grid);
+  expect(() => writeLocalLibrary([{ ...session, marker: { ...marker, grid: { ...marker.grid, valueCm: -1 } } }], 'test', storage)).toThrow('non valida');
+});

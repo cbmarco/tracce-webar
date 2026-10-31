@@ -8,6 +8,7 @@ const allowed = new Set([
   'public/third-party-notices.txt',
   'src/lib/photoAlignment.js', 'src/lib/photoAlignment.test.js',
   'src/markerTracking.js', 'src/markerTracking.test.js',
+  'src/metricGrid.js', 'src/metricGrid.test.js', 'src/MetricGrid.jsx',
 ]);
 const ignored = new Set(['.git', 'node_modules', 'dist', 'test-results', 'playwright-report', '.vite', 'coverage']);
 const forbidden = /IMG_[0-9]{3,}|cason[-]wiki|\/home\/[a-z]+|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16}|data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]{256}/;

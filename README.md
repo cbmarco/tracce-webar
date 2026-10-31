@@ -29,6 +29,19 @@ L’allineamento con più marker usa insieme tutti gli angoli concordi e scarta 
 
 Se il marker non viene letto, l’app lo segnala e permette di usare il percorso tramite scatole. Le modalità WebXR spaziale e fotocamera manuale richiedono ancora almeno una scatola annotata. Il percorso con marker usa l’omografia nel video del browser e allinea il piano della parete.
 
+## Dima A4 e griglia quotata
+
+La schermata iniziale e la vista ArUco permettono di scaricare una **dima A4 SVG** per l’ID scelto: un marker grande per foglio con **lato nero da 16 cm**. Apri il file e stampa su A4 al **100% / dimensioni effettive**, senza adattare alla pagina. Verifica con un righello la barra da 10 cm prima di usare la scala nominale. Fissa i fogli piatti sul piano della parete, accanto alle scatole; per pareti ampie distribuisci più dime con ID diversi.
+
+Nella vista ArUco apri **Griglia quotata · cm**. Scegli il marker di origine e imposta una delle due misure reali:
+
+- **Lato del quadrato nero**, senza il margine bianco. La dima A4 ha lato nominale 16 cm; altri formati richiedono la misura effettiva.
+- **Distanza tra i centri di due marker** presenti nella stessa foto. È la distanza diretta centro-centro sul piano della parete, non la distanza tra i bordi né la sola componente orizzontale.
+
+Scegli il passo (per esempio 10 cm) e premi **Applica griglia quotata**. Lo zero è al centro del marker di origine; gli assi seguono il suo orientamento stampato, X verso destra e Y verso il basso. Metti la dima in bolla per avere assi orizzontali e verticali. La griglia viene proiettata con lo stesso aggancio della foto, mostra quote positive e negative in centimetri e si nasconde se i riferimenti non bastano. Scala, origine, passo e visibilità sono salvati nel browser e nel JSON della sessione.
+
+La misura nota determina la scala; la forma quadrata del marker determina la rettifica del piano. La distanza tra due marker permette di impostare la scala anche senza conoscere il lato stampato. Le quote sono stime visive sul piano della parete: non misurano profondità, non compensano superfici curve o fogli piegati e vanno confrontate con un metro, soprattutto lontano dai riferimenti. Non usare la sola griglia per decidere dove forare.
+
 ## ArUco in basso a sinistra della placca
 
 1. Prepara la foto indicando i quattro angoli della prima scatola.

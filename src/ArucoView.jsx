@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Annotator from './Annotator.jsx';
+import { GridControls, MetricGridOverlay } from './MetricGrid.jsx';
 import { cornerNames } from './session.js';
 import { markerReferences, markerSourceFromFrame, photoCssMatrix, photoHomography } from './lib/photoAlignment.js';
-import { createMarkerDetector, downloadMarker, downloadMarkerPng, findMarker, findTrackedMarkers, markerSvg } from './aruco.js';
+import { createMarkerDetector, downloadMarker, downloadMarkerA4, downloadMarkerPng, findMarker, findTrackedMarkers, markerSvg } from './aruco.js';
 
 export default function ArucoView({ photo, boxes, marker, onCalibrate, onBack }) {
   const video = useRef(null); const stage = useRef(null); const detector = useRef(null);
@@ -67,7 +68,10 @@ export default function ArucoView({ photo, boxes, marker, onCalibrate, onBack })
 
   const projection = useMemo(() => {
     if (!calibration || !detection.marker || frame || !photoSize) return {};
-    try { return { css: photoCssMatrix(detection.homography ?? photoHomography(calibration.sourceCorners, detection.marker.corners), ...photoSize, size.width, size.height) }; }
+    try {
+      const homography = detection.homography ?? photoHomography(calibration.sourceCorners, detection.marker.corners);
+      return { homography, css: photoCssMatrix(homography, ...photoSize, size.width, size.height) };
+    }
     catch { return { error: 'Allineamento non valido. Inquadra il marker più frontalmente o ripeti il collegamento.' }; }
   }, [calibration, detection, frame, photoSize, size]);
 
@@ -96,6 +100,7 @@ export default function ArucoView({ photo, boxes, marker, onCalibrate, onBack })
       <video ref={video} muted playsInline style={{ visibility: frame ? 'hidden' : 'visible' }} />
       {frame && <div className="frozen"><Annotator src={frame.src} points={points} label="Fotogramma di calibrazione ArUco" onPoint={points.length === 4 ? null : (point) => setPoints([...points, point])} /></div>}
       {projection.css && <img className="projection" src={photo} alt="Tracce agganciate ad ArUco" style={{ width: photoSize[0], height: photoSize[1], transform: projection.css, opacity }} />}
+      {projection.homography && <MetricGridOverlay marker={calibration} homography={projection.homography} size={size} />}
       {detected && !frame && <svg className="marker-outline" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">{(detection.matches ?? [detection.marker]).map((item) => <polygon key={item.id} points={item.corners.map(([x, y]) => `${x * 1000},${y * 1000}`).join(' ')} />)}</svg>}
     </div>{status === 'opening' && <p role="status">Apertura fotocamera…</p>}</div>
       <aside className="camera-controls panel aruco-controls">
@@ -118,6 +123,9 @@ export default function ArucoView({ photo, boxes, marker, onCalibrate, onBack })
           <button className="quiet" onClick={() => { setFrame(null); setPoints([]); }}>Annulla calibrazione</button>
         </> : boxes.length > 0 && !multi ? <button className={calibration ? 'secondary' : 'primary'} disabled={status !== 'live' || !detected} onClick={freeze}>{calibration ? 'Ricalibra marker' : 'Ferma e collega marker'}</button> : <p>Collegamento dalla foto pronto: inquadra i riferimenti salvati, senza calibrazione manuale.</p>}
         {calibration && !frame && <label className="range-label">Visibilità foto <output>{Math.round(opacity * 100)}%</output><input aria-label="Visibilità foto" type="range" min="0" max="1" step="0.01" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} /></label>}
+        {calibration && !frame && <GridControls key={id} marker={calibration} onChange={onCalibrate} />}
+        <button className="secondary" onClick={() => downloadMarkerA4(id)}>↓ Scarica dima A4 (SVG)</button>
+        <p>Un marker grande per foglio, quadrato nero da 16 cm. Stampa A4 al 100%, verifica la barra da 10 cm e fissa il foglio piatto sulla parete, fuori dalla scatola.</p>
         <small>Dizionario ARUCO_MIP_36h12, ID 0–249. Il collegamento resta nel localStorage e nell’esportazione della sessione. Verifica l’allineamento lontano dal marker.</small>
       </aside>
     </div>

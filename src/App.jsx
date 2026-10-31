@@ -144,6 +144,8 @@ export default function App() {
           <p>Fissalo piatto sul piano della parete e lascialo fermo durante foto e prova dal vivo. Per una parete ampia usa tre marker con ID diversi, distribuiti a triangolo sullo stesso piano. Includili tutti interi e leggibili nella foto; nella vista AR dovranno esserne visibili almeno due.</p>
           <label>ID da stampare <input aria-label="ID da stampare" type="number" min="0" max="249" value={printId} onChange={(event) => { const n = Number(event.target.value); if (Number.isInteger(n) && n >= 0 && n < 250) setPrintId(n); }} /></label>
           <button className="secondary" onClick={async () => { try { const { downloadMarkerPng } = await import('./aruco.js'); await downloadMarkerPng(printId); } catch (cause) { setMessage(cause.message); } }}>↓ Scarica marker PNG per termica</button>
+          <button className="secondary" onClick={async () => { try { const { downloadMarkerA4 } = await import('./aruco.js'); downloadMarkerA4(printId); } catch (cause) { setMessage(cause.message); } }}>↓ Scarica dima A4 (SVG)</button>
+          <p>Dima A4: un marker grande per foglio, lato nero 16 cm. Stampa al 100% senza adattare, verifica la barra da 10 cm e fissa il foglio sul piano della parete, accanto alla scatola.</p>
           <p><a href="https://print.unseen-site.fun/" target="_blank" rel="noopener noreferrer">Apri Kitty Printer ↗</a> e carica il PNG come immagine. Conserva il bordo bianco. Il marker già stampato funziona anche con le foto nuove.</p>
         </section>
         <p className="privacy-note">Foto e riferimenti vengono salvati nel localStorage di questo browser. Puoi esportarli o eliminarli quando vuoi; non vengono caricati online.</p>
