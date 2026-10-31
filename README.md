@@ -21,6 +21,9 @@ L'immagine non è una verifica sufficiente per decidere dove forare.
 
 1. Prepara la foto indicando i quattro angoli della prima scatola.
 2. Apri **ArUco sulla placca**, scegli un ID (0–249) e scarica il marker SVG.
+   Per la stampante termica usa **Scarica marker PNG per termica**, poi **Apri Kitty Printer**:
+   collega la stampante e carica il PNG come immagine, senza ritagliare il margine bianco.
+   Il PNG è quadrato, 384 × 384 pixel; torna a Tracce dopo la stampa per il collegamento.
    Il dizionario è **ARUCO_MIP_36h12**, non DICT_4X4_50: usa la stampa generata dall’app.
 3. Stampa in nero su bianco, conservando il margine bianco. Fissa il marker in basso
    a sinistra della placca, nello stesso punto e sullo stesso piano dei riferimenti.

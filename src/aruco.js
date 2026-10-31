@@ -33,3 +33,24 @@ export function downloadMarker(id) {
   link.href = url; link.download = `aruco-mip36h12-${id}.svg`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+export async function downloadMarkerPng(id) {
+  const source = markerSvg(id);
+  const image = new Image();
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source)}`;
+  await image.decode();
+  const canvas = document.createElement('canvas');
+  // 384 dots is the common thermal print width. Keep an extra white margin.
+  canvas.width = canvas.height = 384;
+  const context = canvas.getContext('2d');
+  context.fillStyle = 'white';
+  context.fillRect(0, 0, 384, 384);
+  context.imageSmoothingEnabled = false;
+  context.drawImage(image, 32, 32, 320, 320);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) throw new Error('Impossibile creare il PNG. Riprova a scaricarlo.');
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = `aruco-mip36h12-${id}-384px.png`; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

@@ -198,6 +198,24 @@ test('ArUco calibrates an old photo, reacquires automatically and restores the l
   const downloadPending = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Scarica marker SVG' }).click();
   expect((await downloadPending).suggestedFilename()).toBe('aruco-mip36h12-0.svg');
+  const pngPending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Scarica marker PNG per termica' }).click();
+  const pngDownload = await pngPending;
+  expect(pngDownload.suggestedFilename()).toBe('aruco-mip36h12-0-384px.png');
+  const stream = await pngDownload.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const pngResult = await page.evaluate(async (base64) => {
+    const image = new Image(); image.src = `data:image/png;base64,${base64}`; await image.decode();
+    const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
+    const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height);
+    const { createMarkerDetector, findMarker } = await import('/tracce-webar/src/aruco.js');
+    return { width: image.width, height: image.height, colors: [...new Set(pixels.data)], detection: findMarker(pixels, 0, createMarkerDetector()).state };
+  }, Buffer.concat(chunks).toString('base64'));
+  expect(pngResult).toEqual({ width: 384, height: 384, colors: expect.arrayContaining([0, 255]), detection: 'found' });
+  expect(pngResult.colors).toHaveLength(2);
+  await expect(page.getByRole('link', { name: 'Apri Kitty Printer' })).toHaveAttribute('href', 'https://print.unseen-site.fun/');
   await expect(page.getByText('● ArUco 0 rilevato', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Ferma e collega marker' }).click();
   const frozen = page.getByAltText('Fotogramma di calibrazione ArUco');

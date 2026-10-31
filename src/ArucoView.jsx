@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Annotator from './Annotator.jsx';
 import { cornerNames } from './session.js';
 import { markerSourceFromFrame, photoCssMatrix, photoHomography } from './lib/photoAlignment.js';
-import { createMarkerDetector, downloadMarker, findMarker, markerSvg } from './aruco.js';
+import { createMarkerDetector, downloadMarker, downloadMarkerPng, findMarker, markerSvg } from './aruco.js';
 
 export default function ArucoView({ photo, boxes, marker, onCalibrate, onBack }) {
   const video = useRef(null); const stage = useRef(null); const detector = useRef(null);
@@ -99,6 +99,13 @@ export default function ArucoView({ photo, boxes, marker, onCalibrate, onBack })
         <div className="eyebrow">ARUCO · AGGANCIO AUTOMATICO</div><h2>{frame ? points.length === 4 ? 'Salva il collegamento' : `Prima scatola · ${cornerNames[points.length]}` : calibration ? 'Inquadra e ritrova le tracce' : 'Collega il marker alla foto'}</h2>
         <p>{frame ? 'Seleziona i quattro angoli della prima scatola nello stesso ordine della foto originale. Usa gli stessi angoli: il bordo di una placca più grande non equivale al bordo della scatola.' : calibration ? detected ? 'La foto segue il marker. Se esce dal campo, la sovrapposizione si nasconde e riprende quando torna visibile.' : reason : 'Per le foto già scattate, il primo collegamento si fa una sola volta: ferma il video con marker e prima scatola visibili.'}</p>
         <div className="marker-kit"><div className="plate-diagram" aria-label="Marker in basso a sinistra della placca"><div className="plate-outline"><span>PLACCA</span><img src={preview} alt={`ArUco ${id} da stampare`} /></div></div><label>ID marker<input aria-label="ID marker ArUco" type="number" min="0" max="249" value={id} disabled={Boolean(frame)} onChange={(event) => { const next = Number(event.target.value); if (Number.isInteger(next) && next >= 0 && next < 250) { setId(next); setDetection({ state: 'missing', marker: null }); setError(''); } }} /></label><button className="secondary" onClick={() => downloadMarker(id)}>↓ Scarica marker SVG</button></div>
+        <div className="panel">
+          <h3>Stampa termica · Kitty Printer</h3>
+          <button className="secondary" onClick={async () => { try { await downloadMarkerPng(id); setError(''); } catch (cause) { setError(cause.message); } }}>↓ Scarica marker PNG per termica</button>
+          <p>1. Scarica il PNG dell’ID {id}. 2. Apri Kitty Printer, collega la stampante e carica il PNG come immagine. 3. Stampa il quadrato intero, senza ritagliare il bordo bianco.</p>
+          <a className="secondary" href="https://print.unseen-site.fun/" target="_blank" rel="noopener noreferrer">Apri Kitty Printer ↗</a>
+          <p>PNG 384 × 384 pixel, nero su bianco. Torna qui dopo la stampa, fissa il marker e premi «Ferma e collega marker» con marker e prima scatola visibili.</p>
+        </div>
         <p className="marker-placement">Fissa il marker in basso a sinistra della placca, sempre nella stessa posizione e sullo stesso piano dei riferimenti. Conserva il margine bianco e l’orientamento della stampa.</p>
         {frame && <><img className="reference-thumb" src={photo} alt="Prima scatola nella foto originale" /><progress aria-label="Angoli di calibrazione ArUco" max="4" value={points.length} /></>}
         {(error || projection.error) && <div role="alert" className="notice">{error || projection.error}</div>}
